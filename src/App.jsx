@@ -11,10 +11,14 @@ import { useWishlist } from './context/WishlistContext';
 import { useAuthModal } from './context/AuthModalContext';
 import ImageSlider from './components/ImageSlider';
 import { Heart } from 'lucide-react';
-import { API_BASE_URL } from './services/api';
+import { API_BASE_URL, resolveMediaUrl } from './services/api';
+import { formatProductDisplayName, formatProductPackSize, formatCurrency } from './utils/productFormatters';
 
 // Synchronous shared components
 import ProductCard from './components/ProductCard';
+import BottomNavCapsule from './components/BottomNavCapsule';
+import { MobileNavScrollProvider, useMobileNavScroll } from './context/MobileNavScrollContext';
+
 
 // Lazy loaded page routes for optimal mobile performance and smaller initial bundle
 const Shop = lazy(() => import('./pages/Shop'));
@@ -50,6 +54,7 @@ import FloatingSocials from './components/FloatingSocials';
 
 const ShoppableVideos = lazy(() => import('./components/ShoppableVideos'));
 const GoogleReviews = lazy(() => import('./components/GoogleReviews'));
+
 const HandpickedDeals = lazy(() => import('./components/HandpickedDeals'));
 const OurJourney = lazy(() => import('./components/OurJourney'));
 import Footer from './components/Footer';
@@ -172,87 +177,108 @@ function Home() {
 
   const [featuredProducts, setFeaturedProducts] = useState(() => {
     try {
-      const cached = localStorage.getItem('dharani_featured_cache_v8');
+      const cached = sessionStorage.getItem('dharani_most_loved_live_mem');
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed)) {
-          return parsed.map(p => {
-            const r = (p.rating !== null && p.rating !== undefined && p.rating !== '') ? Number(p.rating) : null;
-            const rev = (p.reviews !== null && p.reviews !== undefined && p.reviews !== '') ? Number(p.reviews) : null;
-            const isValid = r !== null && !isNaN(r) && r > 0 && rev !== null && !isNaN(rev) && rev > 0;
-            return {
-              ...p,
-              rating: isValid ? r : null,
-              reviews: isValid ? rev : 0
-            };
-          });
-        }
-        return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
-      return [];
-    } catch { return []; }
+    } catch (e) {}
+    return [];
   });
 
   useEffect(() => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    // Purge any legacy product caches from client localStorage
+    try {
+      localStorage.removeItem('dharani_featured_cache_v11');
+      localStorage.removeItem('dharani_featured_cache_v9');
+      localStorage.removeItem('dharani_products_cache_customer_v8');
+      localStorage.removeItem('dharani_products_cache_store_v8');
+      localStorage.removeItem('dharani_categories_cache');
+      localStorage.removeItem('dharani_brands_cache');
+      localStorage.removeItem('dharani_bundle_offers');
+    } catch (e) {}
 
-    fetch(`${API_BASE_URL}/most-loved/`, {
-      signal: controller.signal,
-      headers: {
-        'ngrok-skip-browser-warning': 'true'
-      }
-    })
-      .then(res => {
-        clearTimeout(timeoutId);
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        return res.json();
-      })
-      .then(data => {
-        const mappedData = data.map(p => {
-            const n = p.name ? p.name.toLowerCase().trim() : '';
-            const rawRating = (p.rating !== null && p.rating !== undefined && p.rating !== '') ? Number(p.rating) : null;
-            let injectedRating = (rawRating !== null && !isNaN(rawRating) && rawRating > 0) ? rawRating : null;
-            const rawReviews = (p.reviews !== null && p.reviews !== undefined && p.reviews !== '') ? Number(p.reviews) : null;
-            let injectedReviews = (rawReviews !== null && !isNaN(rawReviews) && rawReviews > 0) ? rawReviews : 0;
+    const fetchMostLoved = async () => {
+      const mostLovedUrl = 'https://dharaniherbbals.in/herbal/most-loved/';
 
-            if (n === 'chemparuthi herbal shampoo') { injectedRating = 5.0; injectedReviews = 4; }
-            else if (n === 'onion shampoo') { injectedRating = 5.0; injectedReviews = 1; }
-            else if (n === 'rice kanji shampoo') { injectedRating = 5.0; injectedReviews = 2; }
-            else if (n === 'avarampoo pusu manjal jar') { injectedRating = 4.0; injectedReviews = 1; }
-            else if (n === 'multhani metti jar') { injectedRating = 5.0; injectedReviews = 2; }
-            else if (n === 'wild turmeric') { injectedRating = 4.0; injectedReviews = 1; }
-            else if (n === 'aloe vera facepack powder jar (for men)') { injectedRating = 5.0; injectedReviews = 1; }
-            else if (n === 'facepack powder(jar)') { injectedRating = 5.0; injectedReviews = 3; }
-            else if (n === 'nalangu powder jar') { injectedRating = 4.5; injectedReviews = 2; }
-            else if (n === 'multhani metti soap') { injectedRating = 5.0; injectedReviews = 1; }
-            else if (n === 'aloe vera soap') { injectedRating = 5.0; injectedReviews = 1; }
-            else if (n === 'balloon plant oil') { injectedRating = 4.0; injectedReviews = 1; }
-            else if (n === 'amutham nattu charkkarai') { injectedRating = 5.0; injectedReviews = 1; }
-            else if (n === 'karuppu kavuni rice') { injectedRating = 5.0; injectedReviews = 1; }
-            else if (n === 'kodo - moringa millet pongal mix 250g') { injectedRating = 3.0; injectedReviews = 1; }
-            else if (n === 'abc malt (jar)') { injectedRating = 5.0; injectedReviews = 1; }
-            else if (n === 'pirandai pickle') { injectedRating = 5.0; injectedReviews = 1; }
-            else if (n === 'ooty varkey') { injectedRating = 5.0; injectedReviews = 1; }
+      const applyData = (rawList) => {
+        if (!Array.isArray(rawList) || rawList.length === 0) return;
+        const mappedData = rawList.map(p => {
+          const displayName = formatProductDisplayName(p.name);
+          const displayTamilName = formatProductDisplayName(p.tamil_name || p.name);
+          const priceNum = parseFloat(p.customer_price || p.price || p.mrp || 0);
+          const mrpNum = parseFloat(p.mrp || p.price || 0);
 
-            const isValid = injectedRating !== null && !isNaN(injectedRating) && injectedRating > 0 && injectedReviews > 0;
+          let validatedImage = p.image ? resolveMediaUrl(p.image) : '';
+          if (!validatedImage && Array.isArray(p.extra_images) && p.extra_images.length > 0) {
+            validatedImage = resolveMediaUrl(p.extra_images[0]);
+          }
 
-            return {
-              ...p,
-              rating: isValid ? injectedRating : null,
-              reviews: isValid ? injectedReviews : 0
-            };
+          const rawRating = (p.rating !== null && p.rating !== undefined && p.rating !== '') ? Number(p.rating) : null;
+          const rawReviews = (p.reviews !== null && p.reviews !== undefined && p.reviews !== '') ? Number(p.reviews) : null;
+
+          return {
+            id: p.id,
+            brand: p.brand || 'Dharani Herbals',
+            brand_id: p.brand_id || null,
+            name: displayName,
+            raw_name: p.name,
+            tamil_name: displayTamilName,
+            subtitle: p.description ? (p.description.length > 70 ? p.description.substring(0, 70) + '...' : p.description) : 'Pure authentic South Indian botanical formulation.',
+            price: formatCurrency(priceNum),
+            originalPrice: mrpNum > priceNum ? formatCurrency(mrpNum) : '',
+            discount: mrpNum > priceNum ? `${Math.round(((mrpNum - priceNum) / mrpNum) * 100)}% OFF` : '',
+            rating: (rawRating !== null && !isNaN(rawRating) && rawRating > 0) ? rawRating : 5.0,
+            reviews: (rawReviews !== null && !isNaN(rawReviews) && rawReviews > 0) ? rawReviews : 1,
+            image: validatedImage,
+            extra_images: Array.isArray(p.extra_images) ? p.extra_images.map(img => resolveMediaUrl(img)) : [],
+            category_name: p.category_name || (p.category === 8 ? 'Baby' : 'Herbal Care'),
+            description: p.description || '',
+            pack_size: formatProductPackSize(p),
+            variations: p.variations || []
+          };
         });
+
         setFeaturedProducts(mappedData);
-        try { localStorage.setItem('dharani_featured_cache_v8', JSON.stringify(mappedData)); } catch(e) {}
-      })
-      .catch(err => {
-        if (err.name === 'AbortError') return;
-        console.warn("Unable to fetch fresh most-loved products, using cached data:", err.message);
-      });
-    return () => {
-      clearTimeout(timeoutId);
+        try {
+          sessionStorage.setItem('dharani_most_loved_live_mem', JSON.stringify(mappedData));
+        } catch (e) {}
+      };
+
+      const fetchSingle = async (url) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2500);
+        try {
+          const res = await fetch(url, {
+            cache: 'no-store',
+            signal: controller.signal,
+            headers: {
+              'Accept': 'application/json',
+              'ngrok-skip-browser-warning': 'true'
+            }
+          });
+          clearTimeout(timeoutId);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          const rawList = Array.isArray(data) ? data : (data.data || data.results || []);
+          if (Array.isArray(rawList) && rawList.length > 0) return rawList;
+          throw new Error('Empty');
+        } catch (e) {
+          clearTimeout(timeoutId);
+          throw e;
+        }
+      };
+
+      // Fetch Most Loved products only from the CRM-connected Dharani API
+try {
+    const rawList = await fetchSingle(mostLovedUrl);
+    applyData(rawList);
+} catch (error) {
+    console.error('Failed to fetch Most Loved products:', error);
+}
     };
+
+    fetchMostLoved();
   }, []);
 
   const navigate = useNavigate();
@@ -260,7 +286,7 @@ function Home() {
   const [promoAds] = useState([
     { img: s1, alt: "Promo 1", productId: 1260 },
     { img: s2, alt: "Promo 2", productId: 1142 },
-    { img: s3, alt: "Promo 3", productId: 1243 },
+    { img: s3, alt: "Promo 3", productId: 1394 },
     { img: s4, alt: "Promo 4", productId: 1138 },
     { img: s5, alt: "Promo 5", productId: 1248 },
     { img: s6, alt: "Promo 6", productId: 1249 }
@@ -280,7 +306,7 @@ function Home() {
           image: "https://www.dharaniherbbals.in/logo.png",
           type: "website"
         }}
-        keywords={['dharani herbals', 'herbal products', 'siddha wellness', 'chemparuthi herbal shampoo', 'herbal hair oil', 'ayurvedic skincare']}
+        keywords={['dharani herbals', 'herbal products', 'siddha wellness', 'chemparuthi herbal shampoo', 'herbal hair oil', 'pure herbal skincare']}
       />
       {/* Full-width Image Slider */}
       <ImageSlider />
@@ -290,19 +316,25 @@ function Home() {
       <div className="page-container" style={{ paddingTop: '20px' }}>
 
         {/* Featured Products Section (Ultra UI Bestsellers) */}
-        <div className="reveal bento-header">
+        <div
+          className="reveal bento-header"
+          style={{
+            background: 'linear-gradient(135deg, rgba(74,222,128,0.2) 0%, rgba(34,197,94,0.1) 100%)',
+            borderColor: 'rgba(74,222,128,0.3)'
+          }}
+        >
           {/* Decorative background blob */}
           <div className="bento-header-blob left"></div>
 
           <div className="bento-title-col">
-            <div className="bento-title-badge">✦ AYURVEDIC BESTSELLERS ✦</div>
+          { /* <div className="bento-title-badge">✦ SIDDHA & HERBAL BESTSELLERS ✦</div> */}
             <h2 className="bento-title-text">
               {(() => {
                 const words = t('featuredTitle').split(' ');
                 const lastWord = words.pop();
                 return (
                   <div style={{ flex: 1, minWidth: 0, wordWrap: 'break-word' }}>
-                    {words.join(' ')} <span className="highlight">{lastWord}</span>
+                    {words.join(' ')} {lastWord}
                   </div>
                 );
               })()}
@@ -316,10 +348,10 @@ function Home() {
           </div>
         </div>
 
-        {/* Reuse the same ProductCard with full Tamil translation support */}
+        {/* Strictly display dynamic products from the most-loved API (no local catalog fallback) */}
         <div className="shop-grid reveal-stagger" style={{ marginTop: '8px' }}>
-          {featuredProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
+          {featuredProducts.map((product, idx) => (
+            <ProductCard key={product.id} product={product} index={idx} />
           ))}
         </div>
 
@@ -335,14 +367,14 @@ function Home() {
             <ComboOffersSection />
           </div>
 
-          {/* Handpicked Deals Section */}
-          <div className="reveal" style={{ marginTop: '40px' }}>
-            <HandpickedDeals />
-          </div>
-
           {/* Shoppable Videos Section */}
           <div className="reveal">
             <ShoppableVideos />
+          </div>
+
+          {/* Handpicked Deals Section */}
+          <div className="reveal" style={{ marginTop: '40px' }}>
+            <HandpickedDeals />
           </div>
 
           {/* Bento Grid Ads Section */}
@@ -382,6 +414,8 @@ function Home() {
             <OurJourney />
           </div>
 
+
+
           {/* Trust Badges Section */}
           <div className="reveal">
             <TrustBadges />
@@ -416,6 +450,7 @@ function ScrollToTop() {
 
 function AppContent() {
   const location = useLocation();
+  const { isProductListingRoute } = useMobileNavScroll();
   const { isLoginModalOpen } = useAuthModal();
   const isAdminRoute = location.pathname.startsWith('/admin');
   const isAdRoute = location.pathname.startsWith('/ad/');
@@ -488,6 +523,7 @@ function AppContent() {
           </Suspense>
         </RouteErrorBoundary>
       </main>
+      {!isAdminRoute && !isAdRoute && isProductListingRoute && <BottomNavCapsule />}
     </div>
 
   );
@@ -535,7 +571,9 @@ function WishlistToastNotification() {
 function App() {
   return (
     <Router>
-      <AppContent />
+      <MobileNavScrollProvider>
+        <AppContent />
+      </MobileNavScrollProvider>
     </Router>
   );
 }

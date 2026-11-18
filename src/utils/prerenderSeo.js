@@ -128,7 +128,7 @@ function injectMeta(htmlTemplate, seoData) {
   return html;
 }
 
-export function prerenderAll() {
+export async function prerenderAll() {
   if (!fs.existsSync(indexHtmlPath)) {
     console.error('dist/index.html not found. Run "vite build" first.');
     return;
@@ -136,15 +136,18 @@ export function prerenderAll() {
 
   const baseHtml = fs.readFileSync(indexHtmlPath, 'utf-8');
 
-  // Load product catalog cache
-  const cachePath = path.resolve(rootDir, 'src/data/liveProductsCache.json');
+  // Fetch product catalog directly from live API
   let products = [];
-  if (fs.existsSync(cachePath)) {
-    try {
-      products = JSON.parse(fs.readFileSync(cachePath, 'utf-8'));
-    } catch (e) {
-      console.warn('Could not parse liveProductsCache.json:', e);
+  try {
+    const res = await fetch('http://179.197.251.47:30080/herbal/products/?role=admin', {
+      headers: { 'ngrok-skip-browser-warning': 'true' }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      products = Array.isArray(data) ? data : (data.data || data.results || []);
     }
+  } catch (e) {
+    console.warn('Could not fetch products from live API for SEO prerender:', e.message);
   }
 
   let generatedCount = 0;

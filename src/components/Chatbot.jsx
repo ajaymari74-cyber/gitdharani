@@ -1,3 +1,4 @@
+import dharaniLeafLogo from '../assets/dharani_logo_leaf.png';
 import { useState, useRef, useEffect } from 'react';
 import { X, Send, Sparkles, Mic, MicOff, ShoppingCart, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -19,7 +20,7 @@ const PREDEFINED_RESPONSES = [
   },
   {
     keywords: ['about dharani', 'about us', 'who are you', 'what is dharani', 'about company'],
-    response: "Dharani Herbbals provides pure, chemical-free herbal remedies for health and beauty. We bring ancient Siddha and Ayurvedic wisdom into modern daily care."
+    response: "Dharani Herbals provides pure, chemical-free herbal remedies for health and beauty. We bring ancient Siddha and traditional herbal wisdom into modern daily care."
   },
   {
     keywords: ['mission', 'goal', 'vision'],
@@ -39,7 +40,7 @@ const PREDEFINED_RESPONSES = [
   },
   {
     keywords: ['contact', 'support', 'help', 'whatsapp', 'number', 'call', 'reach', 'email'],
-    response: "You can reach us via email at info@dharaniherbbals.in or Call/WhatsApp us at +91 97881 22001 / +91 99655 32001."
+    response: "You can reach us via email at info@dharaniherbbals.in or Call/WhatsApp us at +91 97881 22001 | +91 99655 32001."
   },
   {
     keywords: ['organic', 'natural', 'pure', 'chemical', 'ingredients', 'safe'],
@@ -353,6 +354,10 @@ export default function Chatbot({ isOpen: controlledIsOpen, setIsOpen: controlle
     <div className="chatbot-wrapper">
       {/* Chat Window */}
       <div className={`chatbot-window ${isOpen ? 'open' : ''}`}>
+        {/* Soft, dim, low-opacity watermark background */}
+        <div className="chatbot-watermark-bg" aria-hidden="true">
+          <img src={dharaniLeafLogo} alt="" className="chatbot-watermark-img" />
+        </div>
         <div className="chatbot-header">
           <div className="chatbot-header-info">
             <div className="chatbot-avatar">

@@ -1403,7 +1403,8 @@
   margin-bottom: 32px;
   max-height: 400px;
   overflow-y: auto;
-  padding-right: 8px;
+  padding-top: 10px;  
+  padding-right: 10px;
 }
 
 .summary-item {

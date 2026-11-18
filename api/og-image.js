@@ -1,39 +1,14 @@
 import fs from 'fs';
 import path from 'path';
 
-let cachedProducts = null;
-function getProducts() {
-  if (cachedProducts) return cachedProducts;
-  try {
-    const cachePath = path.join(process.cwd(), 'src/data/liveProductsCache.json');
-    if (fs.existsSync(cachePath)) {
-      const data = fs.readFileSync(cachePath, 'utf8');
-      cachedProducts = JSON.parse(data);
-      return cachedProducts;
-    }
-  } catch (err) {
-    console.error('Failed to load liveProductsCache.json:', err.message);
-  }
-  return [];
-}
-
 export default async function handler(req, res) {
   const { id } = req.query;
   const cleanId = String(id || '').replace(/[^0-9]/g, '');
 
   let imageUrl = null;
-  const products = getProducts();
-  if (cleanId) {
-    const p = products.find(item => String(item.id) === cleanId);
-    if (p && p.image) {
-      let raw = String(p.image).trim();
-      if (raw.includes(',')) raw = raw.split(',')[0].trim();
-      imageUrl = raw.replace(/([^:])\/\/+/g, '$1/');
-    }
-  }
 
-  // Fallback to API if not in cache
-  if (!imageUrl && cleanId) {
+  // Fetch directly from live backend API
+  if (cleanId) {
     try {
       const apiRes = await fetch(`http://179.197.251.47:30080/herbal/products/${cleanId}/`, {
         signal: AbortSignal.timeout(3000)

@@ -74,11 +74,12 @@ html {
   overflow-x: hidden;
   box-sizing: border-box;
   -webkit-text-size-adjust: 100%;
+  touch-action: manipulation;
 }
 
 body {
   font-family: var(--font-sans);
-  background: var(--bg);
+  background: #FAF8F2 !important;
   color: var(--text);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
@@ -88,6 +89,7 @@ body {
   width: 100%;
   max-width: 100%;
   overflow-x: hidden;
+  touch-action: manipulation;
   position: relative;
   box-sizing: border-box;
 }
@@ -101,6 +103,7 @@ body {
   max-width: 100%;
   overflow-x: hidden;
   box-sizing: border-box;
+  background: #FAF8F2 !important;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -540,4 +543,46 @@ a:hover {
 .brands-slider-container {
   content-visibility: auto;
   contain-intrinsic-size: 1px 350px;
+}
+
+/* ==========================================================================
+   MOBILE-ONLY PURE WHITE BACKGROUND AND SUBTLE CARD BORDER STYLING
+   - Desktop UI remains 100% unchanged
+   - All mobile page backgrounds pure white (#FFFFFF)
+   - All mobile cards pure white (#FFFFFF) with subtle border (#E5E5E5)
+   ========================================================================== */
+@media (max-width: 768px) {
+  html,
+  body,
+  #root,
+  .home-root,
+  .shop-root,
+  .about-page,
+  .contact-page,
+  .profile-page,
+  .cart-page,
+  .checkout-page,
+  .combo-landing,
+  .bundle-landing,
+  .bento-header,
+  .category-strip-container,
+  .deals-container,
+  .shoppable-videos-section {
+    background: #FFFFFF !important;
+    background-color: #FFFFFF !important;
+  }
+
+  /* Any card elements on mobile */
+  .category-pill,
+  .category-card,
+  .feature-card,
+  .trust-badge-card,
+  .deal-card,
+  .combo-card,
+  .google-review-card,
+  .review-card {
+    background: #FFFFFF !important;
+    border: 1px solid #E5E5E5 !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+  }
 }

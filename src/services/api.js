@@ -14,23 +14,42 @@ export const resolveMediaUrl = (url) => {
   if (!trimmed) return '';
   if (trimmed.startsWith('data:') || trimmed.startsWith('blob:')) return trimmed;
 
-  // 1. Rewrite api.codingboss backend media URLs to active proxy /api/media/ (which maps to http://179.197.251.47:30080/media/)
+  // 1. Rewrite api.codingboss backend media URLs to active proxy /media/ (which maps to http://179.197.251.47:30080/media/)
   if (trimmed.includes('api.codingboss')) {
     if (trimmed.includes('/media/')) {
       const mediaPath = trimmed.split(/\/media\//)[1];
-      return `/api/media/${mediaPath}`;
+      return `/media/${mediaPath}`;
     }
-    return trimmed.replace(/^https?:\/\/api\.codingboss\.[a-z0-9.]+\//i, 'http://179.197.251.47:30080/');
+    return trimmed.replace(/^https?:\/\/api\.codingboss\.[a-z0-9.]+\//i, '/media/');
   }
 
-  // 2. Direct backend IP media URLs -> route to proxy /api/media/
+  // 2. Direct backend IP media URLs -> route to proxy /media/
+  if (trimmed.includes('127.0.0.1:8000/media/') || trimmed.includes('localhost:8000/media/')) {
+    const mediaPath = trimmed.split(/\/media\//)[1];
+    return `/media/${mediaPath}`;
+  }
+  if (trimmed.includes('127.0.0.1:8000') || trimmed.includes('localhost:8000')) {
+    return trimmed.replace(/^https?:\/\/(127\.0\.0\.1|localhost):8000\/herbal/i, '/herbal')
+                  .replace(/^https?:\/\/(127\.0\.0\.1|localhost):8000/i, '');
+  }
   if (trimmed.includes('179.197.251.47:30080/media/')) {
     const mediaPath = trimmed.split(/\/media\//)[1];
-    return `/api/media/${mediaPath}`;
+    return `/media/${mediaPath}`;
   }
   if (trimmed.includes('179.197.251.47:30080')) {
-    return trimmed.replace(/^https?:\/\/179\.197\.251\.47:30080\/herbal/i, '/api')
-                  .replace(/^https?:\/\/179\.197\.251\.47:30080/i, '/api');
+    return trimmed.replace(/^https?:\/\/179\.197\.251\.47:30080\/herbal/i, '/herbal')
+                  .replace(/^https?:\/\/179\.197\.251\.47:30080/i, '');
+  }
+
+  // Optimized Full-Bleed Product Images (Rose Soap, Vallarai Mixture, Rose Water)
+  if (trimmed.includes('ROSE%20SOAP') || trimmed.includes('ROSE_SOAP') || trimmed.includes('Body/ROSE')) {
+    return '/images/products/rose_soap_full.jpg';
+  }
+  if (trimmed.includes('herbal/6.jpeg') || trimmed.includes('VALLARAI') || trimmed.includes('vallarai')) {
+    return '/images/products/vallarai_mixture_full.jpg';
+  }
+  if (trimmed.includes('Rose_Water') || trimmed.includes('rose_water') || trimmed.includes('7.01.12_PM_EG3goKQ') || trimmed.includes('rose%20water')) {
+    return '/images/products/rose_water_full.jpg';
   }
 
   if (trimmed.startsWith('http://vedanmart.com/')) {
@@ -62,10 +81,10 @@ export const resolveMediaUrl = (url) => {
   }
 
   if (trimmed.startsWith('/media/')) {
-    return `/api${trimmed}`;
+    return trimmed;
   }
   if (trimmed.startsWith('media/')) {
-    return `/api/${trimmed}`;
+    return `/${trimmed}`;
   }
   if (trimmed.startsWith('https://') || trimmed.startsWith('http://')) {
     return trimmed;

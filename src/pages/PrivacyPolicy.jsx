@@ -80,10 +80,10 @@ export default function PrivacyPolicy({ initialTab = 'privacy' }) {
 
           <div className="policy-header-badge">
             <ShieldCheck size={16} />
-            <span>{isTamil ? 'உறுதிப்படுத்தப்பட்ட விதிமுறைகள்' : 'Verified Policies & Timelines'}</span>
+            <span>{isTamil ? 'உறுதிப்படுத்தப்பட்ட விதிமுறைகள்' : 'Our Commitments to You'}</span>
           </div>
 
-          <h1>{isTamil ? 'உதவி மற்றும் கொள்கை வழிகாட்டி' : 'Help & Policies Center'}</h1>
+          <h1>{isTamil ? 'உதவி மற்றும் கொள்கை வழிகாட்டி' : 'Customer Care & Policies'}</h1>
           <p className="effective-date">
             {isTamil 
               ? 'வெளிப்படையான ஷிப்பிங், ரீபண்ட் மற்றும் ரகசியத்தன்மைக் கொள்கைகள் • அமலுக்கு வரும் தேதி: ஜூலை 11, 2026'
@@ -171,7 +171,7 @@ export default function PrivacyPolicy({ initialTab = 'privacy' }) {
             <div className="timeline-text">
               <span className="timeline-label">{isTamil ? 'கிடங்கு அனுப்புதல்' : 'Dispatch Time'}</span>
               <strong className="timeline-value">1–2 {isTamil ? 'வேலை நாட்கள்' : 'Business Days'}</strong>
-              <span className="timeline-sub">{isTamil ? 'ஆர்டர் உறுதி செய்யப்பட்டதும்' : 'Fast processing'}</span>
+              <span className="timeline-sub">{isTamil ? 'ஆர்டர் உறுதி செய்யப்பட்டதும்' : 'Prompt Order Processing'}</span>
             </div>
           </div>
 
@@ -182,7 +182,7 @@ export default function PrivacyPolicy({ initialTab = 'privacy' }) {
             <div className="timeline-text">
               <span className="timeline-label">{isTamil ? 'டெலிவரி காலம்' : 'Delivery Timeline'}</span>
               <strong className="timeline-value">2–3 {isTamil ? 'நாட்கள் (TN) / 3–7 நாட்கள் (இந்தியா)' : 'Days (TN) / 3–7 Days (India)'}</strong>
-              <span className="timeline-sub">{isTamil ? 'நேரடி SMS டிராக்கிங் வசதியுடன்' : 'With live SMS tracking'}</span>
+              <span className="timeline-sub">{isTamil ? 'நேரடி SMS டிராக்கிங் வசதியுடன்' : 'Real-Time Shipment Updates'}</span>
             </div>
           </div>
 
@@ -191,9 +191,9 @@ export default function PrivacyPolicy({ initialTab = 'privacy' }) {
               <AlertTriangle size={20} />
             </div>
             <div className="timeline-text">
-              <span className="timeline-label">{isTamil ? 'சேதம் / தவறு தகவல்' : 'Damage Notice'}</span>
+              <span className="timeline-label">{isTamil ? 'சேதம் / தவறு தகவல்' : 'Damaged or Incorrect Orders'}</span>
               <strong className="timeline-value">{isTamil ? '48 மணி நேரத்திற்குள்' : 'Within 48 Hours'}</strong>
-              <span className="timeline-sub">{isTamil ? 'புகைப்படத்துடன் தெரிவிக்கவும்' : 'With clear item photos'}</span>
+              <span className="timeline-sub">{isTamil ? 'புகைப்படத்துடன் தெரிவிக்கவும்' : 'Photo Evidence Required'}</span>
             </div>
           </div>
 
@@ -202,7 +202,7 @@ export default function PrivacyPolicy({ initialTab = 'privacy' }) {
               <RefreshCw size={20} />
             </div>
             <div className="timeline-text">
-              <span className="timeline-label">{isTamil ? 'ரீபண்ட் வரவு' : 'Refund Processing'}</span>
+              <span className="timeline-label">{isTamil ? 'ரீபண்ட் வரவு' : 'Refund Timeline'}</span>
               <strong className="timeline-value">7–10 {isTamil ? 'வேலை நாட்கள்' : 'Business Days'}</strong>
               <span className="timeline-sub">{isTamil ? 'வங்கி கணக்கில் வரவு வைக்கப்படும்' : 'Direct to original payment'}</span>
             </div>
@@ -242,7 +242,7 @@ export default function PrivacyPolicy({ initialTab = 'privacy' }) {
               <div className="policy-card">
                 <div className="policy-card-header">
                   <div className="card-badge-num">02</div>
-                  <h3>{isTamil ? 'நாங்கள் சேகரிக்கும் தகவல்கள்' : '2. Information We Collect'}</h3>
+                  <h3>{isTamil ? 'நாங்கள் சேகரிக்கும் தகவல்கள்' : '2. Personal Information We Collect'}</h3>
                 </div>
                 <p>{isTamil ? 'எங்கள் சேவைகளை நீங்கள் பயன்படுத்தும்போது பின்வரும் விபரங்களை சேகரிக்கலாம்:' : 'We may collect the following details when you use our website or services:'}</p>
 
@@ -291,7 +291,7 @@ export default function PrivacyPolicy({ initialTab = 'privacy' }) {
               <div className="policy-card">
                 <div className="policy-card-header">
                   <div className="card-badge-num">03</div>
-                  <h3>{isTamil ? 'தகவல் பயன்பாடு' : '3. Use of Information'}</h3>
+                  <h3>{isTamil ? 'தகவல் பயன்பாடு' : '3. How We Use Your Information'}</h3>
                 </div>
                 <p>{isTamil ? 'சேகரிக்கப்பட்ட தகவல்கள் பின்வரும் நன்மைகளுக்காக மட்டுமே பயன்படுத்தப்படுகின்றன:' : 'The information collected is strictly used to:'}</p>
                 <ul className="check-list">
@@ -308,10 +308,10 @@ export default function PrivacyPolicy({ initialTab = 'privacy' }) {
               <div className="policy-card">
                 <div className="policy-card-header">
                   <div className="card-badge-num">04</div>
-                  <h3>{isTamil ? 'மூன்றாம் தரப்பு பகிர்வு & பாதுகாப்பு' : '4. Third-Party Sharing & Security'}</h3>
+                  <h3>{isTamil ? 'மூன்றாம் தரப்பு பகிர்வு & பாதுகாப்பு' : '4. Data Sharing & Security Measures'}</h3>
                 </div>
                 <div className="callout-box success">
-                  <strong>{isTamil ? 'எங்கள் உறுதிமொழி:' : 'Our Strict Guarantee:'}</strong>{' '}
+                  <strong>{isTamil ? 'எங்கள் உறுதிமொழி:' : 'Our Commitment to Your Privacy:'}</strong>{' '}
                   {isTamil 
                     ? 'தாரணி ஹெர்பல்ஸ் உங்கள் தனிப்பட்ட தரவுகளை எந்தவொரு காரணத்திற்காகவும் விற்பனை செய்வதோ, வாடகைக்கு விடுவதோ கிடையாது.'
                     : 'Dharani Herbbals does NOT sell, rent, or trade your personal information with anyone under any circumstances.'}
@@ -328,7 +328,7 @@ export default function PrivacyPolicy({ initialTab = 'privacy' }) {
               <div className="policy-card">
                 <div className="policy-card-header">
                   <div className="card-badge-num">05</div>
-                  <h3>{isTamil ? 'பயனர் உரிமைகள் & கட்டுப்பாடுகள்' : '5. Your Rights & Data Retention'}</h3>
+                  <h3>{isTamil ? 'பயனர் உரிமைகள் & கட்டுப்பாடுகள்' : '5. Your Privacy Rights & Data Retention'}</h3>
                 </div>
                 <p>{isTamil ? 'இந்திய சட்ட விதிகளின்படி உங்களுக்கு உள்ள உரிமைகள்:' : 'Under Indian data protection laws, you retain the full right to:'}</p>
                 <ul>
@@ -682,7 +682,7 @@ export default function PrivacyPolicy({ initialTab = 'privacy' }) {
           <div className="support-banner-content">
             <HelpCircle size={32} className="support-banner-icon" />
             <div>
-              <h3>{isTamil ? 'இன்னும் கேள்விகள் உள்ளதா?' : 'Still have questions or need guidance?'}</h3>
+              <h3>{isTamil ? 'இன்னும் கேள்விகள் உள்ளதா?' : "We're Here to Help"}</h3>
               <p>
                 {isTamil 
                   ? 'எங்கள் அடிக்கடி கேட்கப்படும் கேள்விகள் (FAQ) பக்கத்தைப் பார்க்கவும் அல்லது எங்கள் ஹெர்பல் நிபுணர்களுடன் வாட்ஸ்அப்பில் உரையாடவும்.'

@@ -4737,3 +4737,507 @@
     display: none;
   }
 }
+
+
+/* Product Details Wishlist Enhancements */
+.pd-pro-image-share {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+.pd-image-wishlist-trigger {
+  width: 44px;
+  height: 44px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #111827;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.pd-image-wishlist-trigger:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  transform: scale(1.08);
+  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.2);
+}
+
+.pd-image-wishlist-trigger.is-active {
+  background: #fef2f2;
+  border-color: #fecdd3;
+  color: #ef4444;
+}
+
+.pd-nike-wishlist-item {
+  transition: all 0.2s ease;
+}
+
+.pd-nike-wishlist-item.is-active {
+  color: #ef4444 !important;
+  border-color: #fecdd3 !important;
+  background: #fef2f2 !important;
+}
+
+.pd-sticky-wish-btn {
+  background: white !important;
+  color: #374151 !important;
+  border: 1px solid #e5e7eb !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  padding: 10px 14px !important;
+}
+
+.pd-sticky-wish-btn.is-active {
+  color: #ef4444 !important;
+  background: #fef2f2 !important;
+  border-color: #fecdd3 !important;
+}
+
+
+/* Fixed Buy Bar Mobile & Desktop Buttons */
+.pd-sticky-wa-btn {
+  background: #f0fdf4 !important;
+  color: #16a34a !important;
+  border: 1.5px solid #86efac !important;
+  border-radius: 12px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+  font-weight: 700 !important;
+  font-size: 0.88rem !important;
+  padding: 0 14px !important;
+  flex: 0 0 auto !important;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.12) !important;
+  transition: all 0.2s ease !important;
+}
+
+.pd-sticky-wa-btn:hover {
+  background: #16a34a !important;
+  color: #ffffff !important;
+  border-color: #16a34a !important;
+}
+
+.pd-sticky-wish-btn {
+  width: 44px !important;
+  min-width: 44px !important;
+  height: 44px !important;
+  flex: 0 0 44px !important;
+  background: #ffffff !important;
+  color: #4b5563 !important;
+  border: 1.5px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
+  padding: 0 !important;
+}
+
+.pd-sticky-wish-btn:hover {
+  background: #fef2f2 !important;
+  border-color: #fca5a5 !important;
+  transform: scale(1.05) !important;
+}
+
+.pd-sticky-wish-btn.is-active {
+  background: #fef2f2 !important;
+  border-color: #fecdd3 !important;
+  box-shadow: 0 3px 10px rgba(239, 68, 68, 0.15) !important;
+}
+
+.pd-sticky-wish-btn.is-active svg {
+  fill: #ef4444 !important;
+  stroke: #ef4444 !important;
+  color: #ef4444 !important;
+}
+
+@media (max-width: 768px) {
+  .pd-sticky-btn-group {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex: 1 !important;
+  }
+
+  .pd-sticky-wa-btn {
+    padding: 0 12px !important;
+    height: 44px !important;
+    font-size: 0.84rem !important;
+    flex-shrink: 0 !important;
+  }
+
+  .pd-sticky-wish-btn {
+    display: none !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .pd-sticky-btn-group {
+    gap: 6px !important;
+  }
+
+  .pd-sticky-add-btn {
+    padding: 0 10px !important;
+    font-size: 0.82rem !important;
+    flex: 1 !important;
+  }
+
+  .pd-sticky-buy-btn {
+    padding: 0 12px !important;
+    font-size: 0.82rem !important;
+    flex: 1 !important;
+  }
+
+  .pd-sticky-wa-btn {
+    padding: 0 10px !important;
+    font-size: 0.8rem !important;
+    flex-shrink: 0 !important;
+  }
+
+  .pd-sticky-wish-btn {
+    display: none !important;
+  }
+}
+
+
+/* ==========================================================================
+   EXCLUSIVE EMERALD PRICE & PACK BADGE (STICKY BUY BAR)
+   ========================================================================== */
+.pd-sticky-price-card {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+  background: linear-gradient(135deg, #f0fdf4 0%, #e8f5e9 100%) !important;
+  border: 1.5px solid rgba(22, 163, 74, 0.35) !important;
+  border-radius: 10px !important;
+  padding: 4px 10px !important;
+  flex-shrink: 0 !important;
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.08) !important;
+}
+
+.pd-sticky-price-row {
+  display: flex !important;
+  align-items: baseline !important;
+  gap: 3px !important;
+}
+
+.pd-sticky-rs-label {
+  font-size: 0.78rem !important;
+  font-weight: 800 !important;
+  color: #166534 !important;
+  letter-spacing: 0.4px !important;
+}
+
+.pd-sticky-amount {
+  font-size: 1.25rem !important;
+  font-weight: 800 !important;
+  color: #15803d !important;
+  line-height: 1 !important;
+  letter-spacing: -0.4px !important;
+}
+
+.pd-sticky-original-price {
+  font-size: 0.74rem !important;
+  text-decoration: line-through !important;
+  color: #94a3b8 !important;
+  margin-left: 3px !important;
+}
+
+.pd-sticky-pack-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  background: rgba(22, 163, 74, 0.12) !important;
+  border-radius: 4px !important;
+  padding: 1.5px 6px !important;
+  margin-top: 2px !important;
+}
+
+.pd-sticky-pack-dot {
+  width: 5px !important;
+  height: 5px !important;
+  border-radius: 50% !important;
+  background: #16a34a !important;
+  flex-shrink: 0 !important;
+}
+
+.pd-sticky-pack-text {
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  color: #166534 !important;
+  white-space: nowrap !important;
+}
+
+@media (max-width: 768px) {
+  .pd-sticky-price-card {
+    padding: 3px 8px !important;
+    border-radius: 8px !important;
+  }
+  .pd-sticky-rs-label {
+    font-size: 0.72rem !important;
+  }
+  .pd-sticky-amount {
+    font-size: 1.15rem !important;
+  }
+  .pd-sticky-pack-text {
+    font-size: 0.68rem !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .pd-sticky-price-card {
+    padding: 2.5px 6px !important;
+  }
+  .pd-sticky-amount {
+    font-size: 1.05rem !important;
+  }
+}
+
+/* ==========================================================================
+   ENHANCED BOTANICAL PRODUCT DESCRIPTION SECTION
+   ========================================================================== */
+.pd-accordion-title-wrap {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.pd-accordion-title-icon {
+  color: #16a34a !important;
+}
+
+.pd-desc-enhanced-body {
+  padding-bottom: 24px !important;
+}
+
+.pd-desc-purity-strip {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  margin-bottom: 14px !important;
+  margin-top: 4px !important;
+}
+
+.pd-desc-purity-tag {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  background: #f0fdf4 !important;
+  border: 1px solid rgba(22, 163, 74, 0.25) !important;
+  color: #166534 !important;
+  font-size: 0.76rem !important;
+  font-weight: 700 !important;
+  padding: 4px 10px !important;
+  border-radius: 999px !important;
+  letter-spacing: 0.2px !important;
+}
+
+.pd-desc-card-container {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+}
+
+.pd-desc-card-block {
+  background: #fafafa !important;
+  border: 1px solid #f1f5f9 !important;
+  border-radius: 12px !important;
+  padding: 14px 18px !important;
+  transition: all 0.2s ease !important;
+}
+
+.pd-desc-card-block.is-lead-block {
+  background: linear-gradient(135deg, rgba(240, 253, 244, 0.75) 0%, rgba(244, 254, 247, 0.45) 100%) !important;
+  border-left: 3.5px solid #16a34a !important;
+  border-color: rgba(22, 163, 74, 0.2) !important;
+  border-left-color: #16a34a !important;
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.05) !important;
+}
+
+.pd-desc-card-text {
+  margin: 0 !important;
+  color: #27272a !important;
+  font-size: 0.94rem !important;
+  line-height: 1.7 !important;
+  letter-spacing: 0.1px !important;
+}
+
+.pd-desc-card-block.is-lead-block .pd-desc-card-text {
+  color: #14532d !important;
+  font-weight: 500 !important;
+}
+
+.pd-desc-trust-footer {
+  margin-top: 14px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  font-size: 0.82rem !important;
+  color: #15803d !important;
+  font-weight: 600 !important;
+  background: rgba(240, 253, 244, 0.5) !important;
+  padding: 8px 12px !important;
+  border-radius: 8px !important;
+  border: 1px dashed rgba(22, 163, 74, 0.3) !important;
+}
+
+.pd-desc-trust-icon {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 18px !important;
+  height: 18px !important;
+  background: #16a34a !important;
+  color: #ffffff !important;
+  border-radius: 50% !important;
+  font-size: 0.72rem !important;
+  font-weight: 800 !important;
+  flex-shrink: 0 !important;
+}
+
+
+/* ==========================================================================
+   DESKTOP STYLING FOR STICKY PRICE & PACK BADGE
+   ========================================================================== */
+@media (min-width: 769px) {
+  .pd-sticky-price-card {
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 12px !important;
+    padding: 6px 16px !important;
+    border-radius: 999px !important;
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%) !important;
+    border: 1.5px solid rgba(22, 163, 74, 0.4) !important;
+    box-shadow: 0 4px 12px rgba(22, 163, 74, 0.12) !important;
+  }
+
+  .pd-sticky-price-row {
+    gap: 4px !important;
+  }
+
+  .pd-sticky-rs-label {
+    font-size: 0.82rem !important;
+  }
+
+  .pd-sticky-amount {
+    font-size: 1.35rem !important;
+  }
+
+  .pd-sticky-pack-badge {
+    margin-top: 0 !important;
+    padding: 3px 9px !important;
+    border-radius: 6px !important;
+  }
+
+  .pd-sticky-pack-text {
+    font-size: 0.78rem !important;
+  }
+}
+
+
+/* ==========================================================================
+   PRODUCT DETAILS MAIN HERO IMAGE SIZING (NO AWKWARD GREY/WHITE BORDERS)
+   ========================================================================== */
+.pd-pro-main-image-container.pd-nike-main-view {
+  background: #ffffff !important;
+  border: 1px solid rgba(23, 61, 43, 0.1) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04) !important;
+  overflow: hidden !important;
+}
+
+.pd-pro-main-image-container.pd-nike-main-view .pd-pro-main-image-wrapper {
+  padding: 10px 14px !important;
+}
+
+.pd-pro-main-image-container.pd-nike-main-view .pd-pro-main-image {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+  mix-blend-mode: multiply !important;
+  transform: scale(1.18) !important;
+  transform-origin: center center !important;
+}
+
+@media (max-width: 768px) {
+  .pd-pro-main-image-container.pd-nike-main-view {
+    width: 100% !important;
+    min-height: 350px !important;
+    max-height: 440px !important;
+    border-radius: 16px !important;
+    background: #ffffff !important;
+    border: 1px solid rgba(23, 61, 43, 0.08) !important;
+    box-shadow: 0 2px 14px rgba(0, 0, 0, 0.03) !important;
+  }
+
+  .pd-pro-main-image-container.pd-nike-main-view .pd-pro-main-image-wrapper {
+    padding: 8px 10px !important;
+  }
+
+  .pd-pro-main-image-container.pd-nike-main-view .pd-pro-main-image {
+    transform: scale(1.22) !important;
+    mix-blend-mode: multiply !important;
+  }
+}
+
+
+/* PRODUCT DETAILS - FULL CARD IMAGE DISPLAY */
+
+.pd-pro-main-image-container.pd-nike-main-view {
+    padding: 0 !important;
+    overflow: hidden !important;
+}
+
+.pd-pro-main-image-container.pd-nike-main-view .pd-pro-image-track {
+    width: 100% !important;
+    height: 100% !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+}
+
+.pd-pro-main-image-container.pd-nike-main-view .pd-pro-main-image-wrapper {
+    padding: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.pd-pro-main-image-container.pd-nike-main-view .pd-pro-main-image {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    object-fit: cover !important;
+    object-position: center center !important;
+    transform: none !important;
+    mix-blend-mode: normal !important;
+}
+
+@media (max-width: 768px) {
+    .pd-pro-main-image-container.pd-nike-main-view {
+        padding: 0 !important;
+    }
+
+    .pd-pro-main-image-container.pd-nike-main-view
+    .pd-pro-main-image-wrapper {
+        padding: 0 !important;
+    }
+}

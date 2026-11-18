@@ -964,3 +964,18 @@
     margin-top: 4px;
   }
 }
+
+/* Completely remove promotional preview card and speech bubble */
+.dharani-mascot-card-wrapper {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .dharani-mascot-minimized-trigger {
+    left: 12px !important;
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px)) !important;
+    width: 50px !important;
+    height: 50px !important;
+    z-index: 97 !important;
+  }
+}

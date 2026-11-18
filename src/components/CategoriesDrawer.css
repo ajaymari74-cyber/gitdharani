@@ -1,0 +1,287 @@
+/* ==========================================================================
+   MOBILE CATEGORIES SLIDE-UP DRAWER
+   Strictly hidden on desktop to protect existing desktop experience
+   ========================================================================== */
+
+.categories-drawer-root {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .categories-drawer-root {
+    display: block !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    z-index: 100000 !important;
+    pointer-events: none !important;
+  }
+
+  .categories-drawer-root.is-open {
+    pointer-events: auto !important;
+  }
+
+  /* Dark Backdrop with blur */
+  .categories-drawer-backdrop {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: rgba(15, 23, 42, 0.55) !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+    opacity: 0 !important;
+    transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    pointer-events: none !important;
+  }
+
+  .categories-drawer-root.is-open .categories-drawer-backdrop {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+
+  /* Slide-Up Bottom Sheet */
+  .categories-drawer-sheet {
+    position: absolute !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-height: 82vh !important;
+    background: #FFFFFF !important;
+    border-radius: 24px 24px 0 0 !important;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.2) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    transform: translateY(105%) !important;
+    transition: transform 0.34s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    pointer-events: auto !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  .categories-drawer-root.is-open .categories-drawer-sheet {
+    transform: translateY(0) !important;
+  }
+
+  /* Top Drag Handle Bar */
+  .categories-drawer-handle-bar {
+    width: 100% !important;
+    display: flex !important;
+    justify-content: center !important;
+    padding: 10px 0 4px 0 !important;
+  }
+
+  .categories-drawer-handle {
+    width: 44px !important;
+    height: 4.5px !important;
+    background: #e2e8f0 !important;
+    border-radius: 999px !important;
+  }
+
+  /* Drawer Header */
+  .categories-drawer-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 8px 18px 14px 18px !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+  }
+
+  .categories-drawer-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    font-size: 0.68rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.8px !important;
+    color: #15803d !important;
+    text-transform: uppercase !important;
+    margin-bottom: 2px !important;
+  }
+
+  .categories-badge-icon {
+    color: #16a34a !important;
+  }
+
+  .categories-drawer-heading {
+    margin: 0 !important;
+    font-size: 1.22rem !important;
+    font-weight: 700 !important;
+    color: #14241B !important;
+    font-family: 'Playfair Display', Georgia, serif !important;
+    letter-spacing: -0.2px !important;
+  }
+
+  .categories-drawer-close-btn {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    border: none !important;
+    background: #f1f5f9 !important;
+    color: #475569 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    padding: 0 !important;
+  }
+
+  .categories-drawer-close-btn:active {
+    background: #e2e8f0 !important;
+    transform: scale(0.92) !important;
+  }
+
+  /* Drawer Content Scroll Area */
+  .categories-drawer-content {
+    flex: 1 1 auto !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 14px 16px calc(24px + env(safe-area-inset-bottom, 0px)) 16px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Explore All Banner Card */
+  .explore-all-card {
+    background: linear-gradient(135deg, #15803d 0%, #166534 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 16px !important;
+    padding: 12px 14px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    width: 100% !important;
+    text-align: left !important;
+    cursor: pointer !important;
+    box-shadow: 0 4px 14px rgba(21, 128, 61, 0.25) !important;
+    transition: transform 0.18s ease !important;
+  }
+
+  .explore-all-card:active {
+    transform: scale(0.98) !important;
+  }
+
+  .explore-all-pod {
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 12px !important;
+    background: rgba(255, 255, 255, 0.2) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+  }
+
+  .explore-all-icon {
+    color: #fef08a !important;
+  }
+
+  .explore-all-card .categories-card-name {
+    font-size: 0.96rem !important;
+    font-weight: 700 !important;
+    color: #ffffff !important;
+    display: block !important;
+  }
+
+  .explore-all-card .categories-card-sub {
+    font-size: 0.72rem !important;
+    color: rgba(255, 255, 255, 0.8) !important;
+    display: block !important;
+  }
+
+  .explore-all-card .categories-card-arrow {
+    color: #ffffff !important;
+    margin-left: auto !important;
+  }
+
+  /* Dynamic Category Cards Grid */
+  .categories-drawer-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+    width: 100% !important;
+  }
+
+  .categories-drawer-card {
+    background: #f8fafc !important;
+    border: 1px solid rgba(0, 0, 0, 0.06) !important;
+    border-radius: 14px !important;
+    padding: 10px 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    text-align: left !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+  }
+
+  .categories-drawer-card:active {
+    background: #f0fdf4 !important;
+    transform: scale(0.97) !important;
+  }
+
+  .categories-drawer-card.is-active {
+    background: #f0fdf4 !important;
+    border-color: #16a34a !important;
+    box-shadow: 0 2px 8px rgba(22, 163, 74, 0.15) !important;
+  }
+
+  .categories-card-img-pod {
+    width: 42px !important;
+    height: 42px !important;
+    border-radius: 10px !important;
+    background: #ffffff !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+    overflow: hidden !important;
+    border: 1px solid rgba(0, 0, 0, 0.05) !important;
+  }
+
+  .categories-card-img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important;
+    padding: 2px !important;
+  }
+
+  .categories-card-info {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+
+  .categories-card-name {
+    font-size: 0.86rem !important;
+    font-weight: 600 !important;
+    color: #1e293b !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: block !important;
+  }
+
+  .categories-drawer-card.is-active .categories-card-name {
+    color: #15803d !important;
+    font-weight: 700 !important;
+  }
+
+  .categories-card-arrow {
+    color: #94a3b8 !important;
+    flex-shrink: 0 !important;
+  }
+
+  .categories-drawer-card.is-active .categories-card-arrow {
+    color: #16a34a !important;
+  }
+}

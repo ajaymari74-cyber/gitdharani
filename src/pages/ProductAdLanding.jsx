@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useProducts } from '../context/ProductsContext';
-import { useLanguage } from '../context/LanguageContext';
+import { useLanguage, getCategoryDisplayName } from '../context/LanguageContext';
 import { showAppToast } from '../components/GlobalToast';
 import SeoHead from '../components/SeoHead';
 import { generateProductSeo } from '../utils/productSeo';
@@ -419,7 +419,7 @@ export default function ProductAdLanding() {
     : (productIngredients && productIngredients.length > 0
         ? [
             `Formulated with pure botanical extracts (${productIngredients.slice(0, 3).join(', ')})`,
-            'Crafted following authentic traditional Siddha & Ayurvedic methods',
+            'Crafted following authentic traditional Siddha & herbal methods',
             '100% Free from synthetic parabens, harsh sulfates, and toxic fillers',
             'Safe, gentle, and designed for holistic everyday personal wellness'
           ]
@@ -550,7 +550,7 @@ export default function ProductAdLanding() {
               {/* Category & Badge */}
               <div className="ad-eyebrow-row">
                 <span className="ad-category-badge">
-                  {product.category_name || 'Traditional Herbal Care'}
+                  {getCategoryDisplayName(product.category_name, language) || 'Traditional Herbal Care'}
                 </span>
                 {utmCampaign && (
                   <span className="ad-campaign-pill">

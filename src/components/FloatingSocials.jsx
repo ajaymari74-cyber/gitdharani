@@ -169,11 +169,11 @@ export default function FloatingSocials() {
         <button
           type="button"
           className="floating-action-item action-assistant"
-          aria-label="Open Dharani Herbal Assistant"
+          aria-label="Open Dharani Chatbot"
           tabIndex={isLauncherOpen ? 0 : -1}
           onClick={handleOpenAssistant}
         >
-          <span className="floating-action-label">Ask Assistant</span>
+          <span className="floating-action-label">Chatbot</span>
           <div className="floating-action-icon">
             <Sparkles size={22} />
           </div>
@@ -199,8 +199,8 @@ export default function FloatingSocials() {
                     src="/favicon.png"
                     alt="Dharani Herbbals"
                     className="launcher-d-logo"
-                    width="34"
-                    height="34"
+                    width="28"
+                    height="28"
                     onError={(e) => {
                       e.currentTarget.onerror = null;
                       e.currentTarget.src = '/videos/logo_transparent.webp';

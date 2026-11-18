@@ -9,11 +9,17 @@ import { useWishlist } from '../context/WishlistContext';
 import confetti from 'canvas-confetti';
 import BrandLogoVideo from './BrandLogoVideo';
 import { showAppToast } from './GlobalToast';
+import { useMobileNavScroll } from '../context/MobileNavScrollContext';
+import dharaniLeafLogo from '../assets/dharani_logo_leaf.png';
 import './Navbar.css';
 
 export default function Navbar() {
   const { language, setLanguage, t } = useLanguage();
   const navigate = useNavigate();
+  const { isProductListingRoute, isMobileNavHiddenRoute, showFloatingNav } = useMobileNavScroll();
+  const isMobileNavHidden = isMobileNavHiddenRoute;
+  const showScrollDownHeader = Boolean(isProductListingRoute && showFloatingNav && !isMobileNavHidden);
+  const showScrollUpHeader = showScrollDownHeader;
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -275,7 +281,7 @@ export default function Navbar() {
   };
 
   return (
-    <nav className={`navbar-ultra ${scrolled ? 'scrolled' : ''}`}>
+    <nav className={`navbar-ultra ${scrolled ? 'scrolled' : ''} ${showScrollUpHeader ? 'is-mobile-scrolled-up' : 'is-mobile-default'} ${isProductListingRoute ? 'is-product-listing-page' : 'not-product-listing-page'} ${isMobileNavHidden ? 'mobile-nav-hidden' : ''}`}>
       <div className="navbar-container">
         {/* Mobile Menu Toggle Button */}
         <button className={`mobile-menu-btn ${isMobileMenuOpen ? 'hidden' : ''}`} onClick={toggleMobileMenu} aria-label="Toggle Menu">
@@ -303,7 +309,7 @@ export default function Navbar() {
             <span className="nav-link-text">{t('home')}</span>
           </NavLink>
           <NavLink to="/shop" className="nav-link">
-            <span className="nav-link-text">{t('shopAll')}</span>
+            <span className="nav-link-text">{t('Explore All')}</span>
           </NavLink>
           <NavLink to="/about" className="nav-link">
             <span className="nav-link-text">{t('aboutUs')}</span>
@@ -447,20 +453,77 @@ export default function Navbar() {
         </div>
       </div>
       
-      {/* Mobile Search Row */}
-      <div className="mobile-search-row">
-        <div className="mobile-search-bar">
-          <Search size={18} strokeWidth={2} className="search-icon" />
-          <input 
-            type="text" 
-            placeholder={t('searchPlaceholder')}
-            className="search-input" 
-            value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); setActiveIndex(-1); }}
-            onFocus={() => setShowSuggestions(true)}
-            onKeyDown={handleSearchKeyDown}
-          />
-          {renderDropdown()}
+      {/* 2. Original Mobile Search Row (Only shown on product-listing pages in default mobile mode) */}
+      {isProductListingRoute && !isMobileNavHidden && (
+        <div className="mobile-search-row">
+          <div className="mobile-search-bar">
+            <Search size={18} strokeWidth={2} className="search-icon" />
+            <input 
+              type="text" 
+              placeholder={t('searchPlaceholder')}
+              className="search-input" 
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); setActiveIndex(-1); }}
+              onFocus={() => setShowSuggestions(true)}
+              onKeyDown={handleSearchKeyDown}
+              aria-autocomplete="list"
+              aria-expanded={showSuggestions}
+              role="combobox"
+            />
+            {renderDropdown()}
+          </div>
+        </div>
+      )}
+
+      {/* 3. Mobile Scroll-Up Mode Search Bar (Only shown on mobile when showScrollUpHeader is true) */}
+      <div className="mobile-scroll-mode-header">
+        <div className="mobile-scroll-search-bar">
+          {/* Left side: Existing hamburger menu icon */}
+          <button 
+            type="button"
+            className="mobile-scroll-menu-btn" 
+            onClick={toggleMobileMenu} 
+            aria-label="Toggle Menu"
+          >
+            <div className={`hamburger ${isMobileMenuOpen ? 'open' : ''}`}>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </button>
+
+          {/* Center: Search input field */}
+          <div className="mobile-scroll-input-wrap">
+            <Search size={18} strokeWidth={2.2} className="scroll-search-icon" />
+            <input 
+              type="text" 
+              placeholder={t('searchPlaceholder')}
+              className="scroll-search-input" 
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); setActiveIndex(-1); }}
+              onFocus={() => setShowSuggestions(true)}
+              onKeyDown={handleSearchKeyDown}
+              aria-autocomplete="list"
+              aria-expanded={showSuggestions}
+              role="combobox"
+            />
+            {renderDropdown()}
+          </div>
+
+          {/* Right corner: The supplied image/logo */}
+          <div 
+            className="mobile-scroll-logo-wrap" 
+            onClick={() => navigate('/')} 
+            role="button" 
+            tabIndex={0} 
+            aria-label="Dharani Herbals Home"
+          >
+            <img 
+              src={dharaniLeafLogo} 
+              alt="Dharani Herbals Logo" 
+              className="mobile-scroll-logo-img" 
+            />
+          </div>
         </div>
       </div>
       
@@ -474,7 +537,7 @@ export default function Navbar() {
             <BrandLogoVideo variant="mobile-nav" />
             <div className="brand-text-logo">
               <div className="brand-text-line1">Dharani</div>
-              <div className="brand-text-line2">Herbbals<span className="brand-reg">®</span></div>
+              <div className="brand-text-line2">Herbals<span className="brand-reg">®</span></div>
             </div>
           </div>
           <button className="close-drawer-btn" onClick={toggleMobileMenu}>
@@ -488,7 +551,7 @@ export default function Navbar() {
           </NavLink>
           <NavLink to="/shop" className="mobile-nav-link" onClick={toggleMobileMenu}>
             <div className="nav-icon-box"><ShoppingBag size={22} /></div>
-            <span>{t('shopAll')}</span>
+            <span>{t('Explore All')}</span>
           </NavLink>
           <NavLink to="/about" className="mobile-nav-link" onClick={toggleMobileMenu}>
             <div className="nav-icon-box"><Info size={22} /></div>

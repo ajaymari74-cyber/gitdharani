@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { MapPin, Phone, CheckCircle, ArrowLeft, Loader2, Plus, Navigation, Trash2, Edit2, ChevronDown, UserCircle, Check, Truck } from 'lucide-react';
+import { MapPin, Phone, CheckCircle, ArrowLeft, Loader2, Plus, Navigation, Edit2, Search, UserCircle, Check, Truck } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuthModal } from '../context/AuthModalContext';
@@ -17,6 +17,12 @@ const INDIAN_STATES = [
   "Mizoram", "Nagaland", "Odisha", "Puducherry", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu",
   "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"
 ];
+
+const getStateSuggestions = (query) => {
+  const q = query.trim().toLowerCase();
+  if (!q) return INDIAN_STATES;
+  return INDIAN_STATES.filter(s => s.toLowerCase().startsWith(q));
+};
 
 export default function Checkout() {
   const { cartItems, cartTotal, shippingCost, taxAmount, cgst, sgst, igst, taxTotal, grandTotal, refreshCart } = useCart();
@@ -66,6 +72,7 @@ export default function Checkout() {
   const [addressToDelete, setAddressToDelete] = useState(null);
   const [isStateDropdownOpen, setIsStateDropdownOpen] = useState(false);
   const stateDropdownRef = useRef(null);
+  const [stateSearchText, setStateSearchText] = useState('');
 
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [successOrderId, setSuccessOrderId] = useState(null);
@@ -239,6 +246,43 @@ export default function Checkout() {
       return () => clearTimeout(timer);
     }
   }, [showSuccessPopup]);
+  
+const normalizeAddress = (addr) => ({ ...addr, id: addr.id ?? addr.address_id });
+
+const fetchUserAddresses = async (userId, retries = 2) => {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/address/${userId}/?_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+      });
+      const text = await response.text();
+      let data = {};
+      try { data = text ? JSON.parse(text) : {}; } catch { throw new Error('Invalid address API response'); }
+
+      if (!response.ok) {
+        if (response.status === 400 && data.message?.includes('No User matches')) {
+          throw new Error('USER_NOT_FOUND');
+        }
+        throw new Error(data.message || `Failed to fetch addresses (${response.status})`);
+      }
+
+      const rawList = Array.isArray(data.addresses) ? data.addresses
+        : Array.isArray(data.results) ? data.results
+        : Array.isArray(data) ? data : [];
+
+      const addresses = rawList
+        .filter(a => a && !a.is_deleted && a.is_active !== false)
+        .map(normalizeAddress);
+
+      if (addresses.length > 0 || attempt === retries) return addresses;
+    } catch (err) {
+      if (err.message === 'USER_NOT_FOUND' || attempt === retries) throw err;
+    }
+    await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
+  }
+  return [];
+};
 
   const loadUserData = () => {
     const storedUser = localStorage.getItem('user');
@@ -259,61 +303,78 @@ export default function Checkout() {
         const currentUserId = userData.id || userData.user_id;
 
         // Fetch addresses from backend
-        fetch(`${API_BASE_URL}/address/${currentUserId}/`, {
-          headers: { 'ngrok-skip-browser-warning': 'true' }
-        })
-          .then(async res => {
-            const text = await res.text();
-            let parsedData = {};
-            try {
-              parsedData = JSON.parse(text);
-            } catch (e) {
-              // ignore JSON parse error
-            }
+        // Fetch addresses from backend with retry
+fetchUserAddresses(currentUserId)
+  .then(loadedAddresses => {
 
-            if (!res.ok) {
-              if (res.status === 400 && parsedData.message && parsedData.message.includes('No User matches')) {
-                throw new Error('USER_NOT_FOUND');
-              }
-              throw new Error(parsedData.message || 'API Error');
-            }
+    setSavedAddresses(loadedAddresses);
 
-            return parsedData;
-          })
-          .then(data => {
-            let loadedAddresses = [];
-            if (data && Array.isArray(data.addresses)) {
-              loadedAddresses = data.addresses;
-            } else if (Array.isArray(data)) {
-              loadedAddresses = data;
-            }
+    if (loadedAddresses.length > 0) {
 
-            setSavedAddresses(loadedAddresses);
-            if (loadedAddresses.length > 0) {
-              setSelectedAddressId(loadedAddresses[0].id);
-              setFormData(loadedAddresses[0]);
-              setCheckoutView('selected');
-              if (loadedAddresses[0].state) {
-                refreshCart({ address_id: loadedAddresses[0].id, state: loadedAddresses[0].state });
-              }
-              if (userData.name === 'Guest User' || userData.name === 'Vedan Customer' || userData.name === 'Dharani Customer' || userData.email?.includes('@guest.com')) {
-                setActiveStep(1);
-              } else {
-                setActiveStep(2);
-              }
-            } else {
-              setCheckoutView('form');
-              setShowFullAddressForm(false);
-              setIsManualEntry(false);
-              if (userData.name === 'Guest User' || userData.name === 'Vedan Customer' || userData.name === 'Dharani Customer' || userData.email?.includes('@guest.com')) {
-                setActiveStep(1);
-              } else {
-                setActiveStep(2);
-              }
-              if (userData.name) setFormData(prev => ({ ...prev, full_name: userData.name }));
-              if (userData.mobile) setFormData(prev => ({ ...prev, phone: userData.mobile }));
-            }
-          })
+      const firstAddress = loadedAddresses[0];
+      const firstAddressId =
+        firstAddress.id || firstAddress.address_id;
+
+      setSelectedAddressId(firstAddressId || null);
+
+      setFormData(prev => ({
+        ...prev,
+        ...firstAddress,
+        id: firstAddressId
+      }));
+
+      setCheckoutView('selected');
+
+      if (firstAddress.state && firstAddressId) {
+        refreshCart({
+          address_id: firstAddressId,
+          state: firstAddress.state
+        });
+      }
+
+      if (
+        userData.name === 'Guest User' ||
+        userData.name === 'Vedan Customer' ||
+        userData.name === 'Dharani Customer' ||
+        userData.email?.includes('@guest.com')
+      ) {
+        setActiveStep(1);
+      } else {
+        setActiveStep(2);
+      }
+
+    } else {
+
+      setCheckoutView('form');
+      setShowFullAddressForm(false);
+      setIsManualEntry(false);
+
+      if (
+        userData.name === 'Guest User' ||
+        userData.name === 'Vedan Customer' ||
+        userData.name === 'Dharani Customer' ||
+        userData.email?.includes('@guest.com')
+      ) {
+        setActiveStep(1);
+      } else {
+        setActiveStep(2);
+      }
+
+      if (userData.name) {
+        setFormData(prev => ({
+          ...prev,
+          full_name: userData.name
+        }));
+      }
+
+      if (userData.mobile) {
+        setFormData(prev => ({
+          ...prev,
+          phone: userData.mobile
+        }));
+      }
+    }
+  })
           .catch(err => {
             if (err.message === 'USER_NOT_FOUND') {
               // The user session is invalid / backend DB was reset
@@ -360,6 +421,28 @@ export default function Checkout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAddressId, formData.state]);
 
+  const reloadSavedAddresses = async () => {
+  const uid = user?.id || user?.user_id;
+  if (!uid) return;
+  try {
+    const list = await fetchUserAddresses(uid);
+    setSavedAddresses(list);
+    if (list.length > 0) {
+      const current = list.find(a => String(a.id) === String(selectedAddressId)) || list[0];
+      setSelectedAddressId(current.id);
+      setFormData(prev => ({ ...prev, ...current }));
+      setCheckoutView(list.length > 1 ? 'list' : 'selected');
+    }
+  } catch (err) {
+    console.error('Could not load saved addresses', err);
+  }
+};
+
+useEffect(() => {
+  if (activeStep === 2 && savedAddresses.length === 0) reloadSavedAddresses();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [activeStep]);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
@@ -367,6 +450,39 @@ export default function Checkout() {
       refreshCart({ state: value });
     }
   };
+
+
+  const handleStateSelect = (state) => {
+  setFormData(prev => ({ ...prev, state }));
+  setStateSearchText(state);
+  setIsStateDropdownOpen(false);
+  refreshCart({ state });
+};
+
+const handleStateInputChange = (e) => {
+  const value = e.target.value;
+  setStateSearchText(value);
+  setIsStateDropdownOpen(true);
+  const exact = INDIAN_STATES.find(s => s.toLowerCase() === value.trim().toLowerCase());
+  if (exact && exact !== formData.state) {
+    setFormData(prev => ({ ...prev, state: exact }));
+    refreshCart({ state: exact });
+  }
+};
+
+const handleStateKeyDown = (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const list = getStateSuggestions(stateSearchText === formData.state ? '' : stateSearchText);
+    if (list.length > 0) handleStateSelect(list[0]);
+  } else if (e.key === 'Escape') {
+    setIsStateDropdownOpen(false);
+  }
+};
+
+const stateSuggestions = getStateSuggestions(
+  stateSearchText === formData.state ? '' : stateSearchText
+);
 
   const handleSelectAddress = (addr) => {
     setSelectedAddressId(addr.id);
@@ -556,30 +672,121 @@ export default function Checkout() {
       });
 
       if (addrRes.ok) {
-        const text = await addrRes.text(); let savedAddr = {}; try { savedAddr = text ? JSON.parse(text) : {}; } catch (e) { console.error("JSON parse error on addrRes:", text); }
-        let newId = savedAddr.id || savedAddr.address_id || formData.id;
 
-        const res = await fetch(`${API_BASE_URL}/address/${currentUserId}/`, {
-          headers: { 'ngrok-skip-browser-warning': 'true' }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          let loadedAddresses = [];
-          if (data && Array.isArray(data.addresses)) loadedAddresses = data.addresses;
-          else if (Array.isArray(data)) loadedAddresses = data;
-          setSavedAddresses(loadedAddresses);
-          if (!newId && loadedAddresses.length > 0) {
-            newId = loadedAddresses[loadedAddresses.length - 1].id;
-          }
-        }
+  const text = await addrRes.text();
 
-        if (newId) {
-          setSelectedAddressId(newId);
-          setFormData({ ...formData, id: newId });
-        }
-        setCheckoutView('selected');
-        setError(null);
-      } else {
+  let savedResponse = {};
+
+  try {
+    savedResponse = text ? JSON.parse(text) : {};
+  } catch (err) {
+    console.error("Address response parsing failed:", err);
+  }
+
+  const savedAddr =
+    savedResponse.address ||
+    savedResponse.data ||
+    savedResponse;
+
+  let newId =
+    savedAddr.id ||
+    savedAddr.address_id ||
+    savedResponse.id ||
+    savedResponse.address_id ||
+    formData.id;
+
+  // If the POST response has no ID, try fetching
+  // the saved address from the backend.
+  if (!newId) {
+
+    const addresses = await fetchUserAddresses(currentUserId, 2);
+
+    const matchingAddress = addresses.find(address =>
+      address.phone === formData.phone &&
+      address.address === formData.address &&
+      address.pincode === formData.pincode
+    );
+
+    // Do not select an unrelated address.
+    if (matchingAddress) {
+      newId = matchingAddress.id || matchingAddress.address_id;
+    }
+  }
+
+  if (!newId) {
+    setError(
+      "Address saved, but its ID could not be confirmed. Please try loading your saved addresses again."
+    );
+    return;
+  }
+
+  // Build address immediately from the successful save response.
+  const addressToSelect = {
+    ...formData,
+    ...savedAddr,
+    id: newId
+  };
+
+  // Update React state immediately.
+  setSelectedAddressId(newId);
+  setFormData(addressToSelect);
+
+  setSavedAddresses(prev => {
+
+    const existingIndex = prev.findIndex(
+      address =>
+        String(address.id || address.address_id) === String(newId)
+    );
+
+    if (existingIndex === -1) {
+      return [...prev, addressToSelect];
+    }
+
+    return prev.map((address, index) =>
+      index === existingIndex
+        ? addressToSelect
+        : address
+    );
+  });
+
+  setCheckoutView('selected');
+  setError(null);
+
+  // Refresh the backend address list without clearing
+  // the newly saved address if the GET returns empty.
+  try {
+
+    const latestAddresses = await fetchUserAddresses(currentUserId, 0);
+
+    if (latestAddresses.length > 0) {
+
+      const hasSelectedAddress = latestAddresses.some(
+        address =>
+          String(address.id || address.address_id) === String(newId)
+      );
+
+      setSavedAddresses(
+        hasSelectedAddress
+          ? latestAddresses
+          : [...latestAddresses, addressToSelect]
+      );
+    }
+
+  } catch (err) {
+    console.warn(
+      "Address saved, but refresh failed. Keeping selected address.",
+      err
+    );
+  }
+
+  if (addressToSelect.state) {
+    refreshCart({
+      address_id: newId,
+      state: addressToSelect.state
+    });
+  }
+
+}else {
         const text = await addrRes.text(); let errData = {}; try { errData = text ? JSON.parse(text) : {}; } catch (e) { console.error("JSON parse error on addrRes err:", text); }
         setError(errData.message || errData.error || "Failed to save address");
       }
@@ -1307,14 +1514,7 @@ export default function Checkout() {
                                     >
                                       <Edit2 size={15} />
                                     </button>
-                                    <button
-                                      type="button"
-                                      className="icon-action-btn delete-icon"
-                                      title="Delete Address"
-                                      onClick={(e) => { e.stopPropagation(); setAddressToDelete(addr.id); }}
-                                    >
-                                      <Trash2 size={15} />
-                                    </button>
+                                    
                                   </div>
                                 </div>
 
@@ -1427,24 +1627,47 @@ export default function Checkout() {
                               <input type="text" name="city" value={formData.city} onChange={handleInputChange} required placeholder="e.g. Chennai" />
                             </div>
                             <div className="form-group relative" ref={stateDropdownRef}>
-                              <label>State</label>
-                              <div className="custom-select-trigger" onClick={() => setIsStateDropdownOpen(!isStateDropdownOpen)}>
-                                <span style={{ color: formData.state ? '#1e293b' : '#9CA3AF' }}>{formData.state || 'Select State'}</span>
-                                <ChevronDown size={18} className={isStateDropdownOpen ? 'rotate-180' : ''} style={{ transition: 'transform 0.2s', color: '#6B7280' }} />
-                              </div>
-                              {isStateDropdownOpen && (
-                                <>
-                                  <div className="custom-select-overlay" onClick={() => setIsStateDropdownOpen(false)} />
-                                  <div className="custom-select-dropdown">
-                                    {INDIAN_STATES.map(state => (
-                                      <div key={state} className={`custom-select-option ${formData.state === state ? 'selected' : ''}`} onClick={() => { setFormData(prev => ({ ...prev, state })); setIsStateDropdownOpen(false); refreshCart({ state }); }}>
-                                        {state}
-                                      </div>
-                                    ))}
-                                  </div>
-                                </>
-                              )}
+                            <label>State</label>
+                            <div className="input-with-icon">
+                              <Search size={18} className="input-icon" />
+                              <input
+                                type="text"
+                                name="state_search"
+                                autoComplete="off"
+                                placeholder="Type to search state (e.g. Tamil Nadu)"
+                                value={isStateDropdownOpen ? stateSearchText : (formData.state || '')}
+                                onFocus={(e) => {
+                                  setStateSearchText(formData.state || '');
+                                  setIsStateDropdownOpen(true);
+                                  e.target.select();
+                                }}
+                                onChange={handleStateInputChange}
+                                onKeyDown={handleStateKeyDown}
+                                role="combobox"
+                                aria-expanded={isStateDropdownOpen}
+                                aria-autocomplete="list"
+                              />
                             </div>
+                            {isStateDropdownOpen && (
+                              <div className="custom-select-dropdown">
+                                {stateSuggestions.length > 0 ? (
+                                  stateSuggestions.map(state => (
+                                    <div
+                                      key={state}
+                                      className={`custom-select-option ${formData.state === state ? 'selected' : ''}`}
+                                      onClick={() => handleStateSelect(state)}
+                                    >
+                                      {state}
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div style={{ padding: '16px', textAlign: 'center', color: '#94a3b8', fontSize: '0.9rem' }}>
+                                    No states found
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
                           </div>
 
                           <div className="form-group half-width">

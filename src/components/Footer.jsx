@@ -69,7 +69,7 @@ export default function Footer() {
         <div className="footer-logo-box footer-animate">
           <Link to="/" className="footer-brand" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textDecoration: 'none' }}>
             <div className="brand-text-logo footer-brand-text">
-              <div className="brand-text-line1" style={{ fontSize: 'clamp(2.5rem, 5vw, 3.5rem)', lineHeight: '1.0', color: '#ffffff' }}>Dharani Herbbals<span className="brand-reg">®</span></div>
+              <div className="brand-text-line1" style={{ fontSize: 'clamp(2.5rem, 5vw, 3.5rem)', lineHeight: '1.0', color: '#ffffff' }}>Dharani Herbals<span className="brand-reg">®</span></div>
               
             </div>
           </Link>
@@ -82,7 +82,7 @@ export default function Footer() {
 
         {/* Single Row of Links */}
         <div className="footer-inline-links footer-animate">
-          <Link to="/shop">Shop All</Link>
+          <Link to="/shop">Explore All</Link>
           <span className="separator">·</span>
           <Link to="/about">Our Story</Link>
           <span className="separator">·</span>
@@ -95,9 +95,9 @@ export default function Footer() {
 
         {/* Contact Info (Inline) */}
         <div className="footer-inline-contact footer-animate">
-          <a href="mailto:info@dharanimart.in">info@dharanimart.in</a>
+          <a href="mailto:info@dharaniherbbals.in">info@dharaniherbbals.in</a>
           <span className="separator">|</span>
-          <a href="tel:+919788122001">+91 97881 22001 / +91 99655 32001</a>
+          <a href="tel:+919788122001">+91 97881 22001 | +91 99655 32001</a>
         </div>
 
         {/* Social Icons */}

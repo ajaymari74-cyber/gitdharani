@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import ProductCard from '../components/ProductCard';
-import { ShoppingCart, ShieldCheck, Leaf, Truck, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Share2, MessageCircle, Camera, Copy, Check, Package, Plus, Star, MessageSquare, FileText, CheckCircle, ArrowLeft, Sparkles, Compass, Info, X, Edit3, Send } from 'lucide-react';
+import { ShoppingCart, ShieldCheck, Leaf, Truck, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Share2, MessageCircle, Camera, Copy, Check, Package, Plus, Star, MessageSquare, FileText, CheckCircle, ArrowLeft, Sparkles, Compass, Info, X, Edit3, Send, Heart } from 'lucide-react';
+import { useWishlist } from '../context/WishlistContext';
 import imgLifestyle from '../assets/herbal_lifestyle.webp';
 import imgIngredients from '../assets/herbal_ingredients.webp';
 import imgTexture from '../assets/herbal_texture.webp';
@@ -19,12 +20,15 @@ import { getVerifiedReviewData, getProductReviewsAndSummary } from '../utils/pro
 import './ProductDetails.css';
 
 export default function ProductDetails() {
-  const { id } = useParams();
+  const { id: rawId } = useParams();
+  // Legacy or offer alias: 1243 maps to 1394 (Wild Turmeric)
+  const id = String(rawId) === '1243' ? '1394' : rawId;
   const navigate = useNavigate();
   const { products, loading, getProductById } = useProducts();
   const { language, translateText, translateProduct, bulkProductNames, t } = useLanguage();
   const contextProduct = (getProductById ? getProductById(id) : null) || products.find(p => p.id === parseInt(id));
   const [fetchedProduct, setFetchedProduct] = useState(null);
+  const [isFetchingDirect, setIsFetchingDirect] = useState(!contextProduct && Boolean(id));
   const product = contextProduct || fetchedProduct;
   const sliderRef = useRef(null);
   const trackRef = useRef(null);
@@ -350,6 +354,7 @@ export default function ProductDetails() {
   const [ingredientsExpanded, setIngredientsExpanded] = useState(true);
   const [ingredientsTab, setIngredientsTab] = useState('key');
   const { addToCart } = useCart();
+  const { toggleWishlist, isInWishlist } = useWishlist();
 
   const defaultDesc = "Experience the incredible benefits of our completely natural, 100% organic herbal formulation. Carefully crafted using traditional methods and sustainably sourced ingredients to ensure the highest quality for your holistic wellness journey. Free from harmful chemicals, parabens, and artificial preservatives.";
 
@@ -361,9 +366,11 @@ export default function ProductDetails() {
   // If product is not in global context (e.g. newly created on backend), fetch directly by ID
   useEffect(() => {
     if (!contextProduct && id) {
+      setIsFetchingDirect(true);
       const endpoints = [
-        `http://127.0.0.1:8000/herbal/products/${id}/`,
-        `${API_BASE_URL}/products/${id}/`
+        `/api/products/${id}/`,
+        `${API_BASE_URL}/products/${id}/`,
+        `http://179.197.251.47:30080/herbal/products/${id}/`
       ];
 
       let isMounted = true;
@@ -371,13 +378,14 @@ export default function ProductDetails() {
         for (const url of endpoints) {
           try {
             const res = await fetch(url, { headers: { 'ngrok-skip-browser-warning': 'true' } });
-            if (res.ok) {
+            const contentType = res.headers.get('content-type') || '';
+            if (res.ok && contentType.includes('application/json')) {
               const data = await res.json();
               const p = data.data || data;
               if (p && p.id && isMounted) {
                 const priceNum = parseFloat(p.customer_price || p.price || p.mrp || 0);
                 const mrpNum = parseFloat(p.mrp || p.price || 0);
-                const resolvedImg = resolveMediaUrl(p.image) || getProductFallbackImage(p.name, p.id) || 'https://vedanmart.com/images/Food/WILD%20HONEYJAR(NR).jpg';
+                const resolvedImg = resolveMediaUrl(p.image) || getProductFallbackImage(p.name, p.id) || 'https://vedanmart.com/images/Baby/NALANGU%20POWDER%20JAR.jpg';
                 const formattedP = {
                   ...p,
                   name: formatProductDisplayName(p.name),
@@ -388,7 +396,7 @@ export default function ProductDetails() {
                   discount: mrpNum > priceNum ? `${Math.round(((mrpNum - priceNum) / mrpNum) * 100)}% OFF` : '',
                   image: resolvedImg,
                   extra_images: Array.isArray(p.extra_images) ? p.extra_images.map(img => resolveMediaUrl(img)).filter(Boolean) : [],
-                  category_name: p.category_name || (p.category === 7 ? 'Health & Wellness' : 'Herbal Care'),
+                  category_name: p.category_name || (p.category === 7 ? 'Wellness' : 'Herbal Care'),
                   description: p.description || '',
                   pack_size: formatProductPackSize(p) || '50g',
                   rating: 5.0,
@@ -399,14 +407,18 @@ export default function ProductDetails() {
                 setTranslatedName(formatProductDisplayName(formattedP.name));
                 setTranslatedSubtitle(formattedP.subtitle || '100% Authentic Botanical Care');
                 setTranslatedDesc(getProductDescription(formattedP) || formattedP.description || defaultDesc);
+                setIsFetchingDirect(false);
                 return;
               }
             }
           } catch (e) {}
         }
+        if (isMounted) setIsFetchingDirect(false);
       })();
 
       return () => { isMounted = false; };
+    } else {
+      setIsFetchingDirect(false);
     }
   }, [id, contextProduct]);
 
@@ -583,8 +595,16 @@ export default function ProductDetails() {
   useEffect(() => {
     if (!product) return;
 
-    const key = `${product.id}:${language}`;
-    // Skip if we already ran translation for this exact product+language combo
+    const key = JSON.stringify([
+      product.id,
+      language,
+      product.name,
+      product.tamil_name,
+      product.subtitle,
+      product.description
+    ]);
+
+    // Skip only when the product information and language are unchanged
     if (translatedRef.current === key) return;
     translatedRef.current = key;
 
@@ -594,7 +614,7 @@ export default function ProductDetails() {
     setTranslatedName(formatProductDisplayName(language === 'ta' && product.tamil_name ? product.tamil_name : product.name));
 
     setTranslatedSubtitle(product.subtitle);
-    const activeBaseDesc = getProductDescription(product) || product.description || defaultDesc;
+    const activeBaseDesc = product.description || getProductDescription(product) || defaultDesc;
     setTranslatedDesc(activeBaseDesc);
 
     if (language === 'ta') {
@@ -613,7 +633,15 @@ export default function ProductDetails() {
 
     return () => { active = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language, product?.id, bulkProductNames]);
+  }, [
+    language,
+    product?.id,
+    product?.name,
+    product?.tamil_name,
+    product?.subtitle,
+    product?.description,
+    bulkProductNames
+  ]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -686,8 +714,8 @@ export default function ProductDetails() {
     return scored.slice(0, 6).map(s => s.product);
   }, [product, products, productIngredients]);
 
-  if (loading) {
-    return <div className="pd-pro-wrapper"><div style={{ padding: '100px', textAlign: 'center' }}>Loading...</div></div>;
+  if (loading || isFetchingDirect) {
+    return <div className="pd-pro-wrapper"><div style={{ padding: '100px', textAlign: 'center' }}>Loading product details...</div></div>;
   }
 
   if (!product) {
@@ -942,7 +970,7 @@ export default function ProductDetails() {
           {product.category_name && (
             <>
               <Link to={`/shop?category=${encodeURIComponent(product.category_name)}`}>
-                {language === 'ta' ? getCategoryDisplayName(product.category_name, 'ta') : product.category_name}
+               {getCategoryDisplayName(product.category_name, language)}
               </Link>
               <span className="separator">/</span>
             </>
@@ -961,7 +989,7 @@ export default function ProductDetails() {
               </span>
             )}
             <span className="pd-nike-category">
-              {(language === 'ta' ? getCategoryDisplayName(product.category_name, 'ta') : product.category_name) || (language === 'ta' ? 'மூலிகை பராமரிப்பு' : 'Herbal Care')} • {language === 'ta' ? '100% மூலிகை' : '100% Botanical'}
+              {getCategoryDisplayName(product.category_name, language) || (language === 'ta' ? 'மூலிகை பராமரிப்பு' : 'Herbal Care')} • {language === 'ta' ? '100% மூலிகை' : '100% Botanical'}
             </span>
           </div>
           <h1 className="pd-nike-mobile-title">{translatedName}</h1>
@@ -1086,6 +1114,15 @@ export default function ProductDetails() {
             <div className="pd-pro-image-share">
               <button
                 type="button"
+                className={`pd-image-wishlist-trigger ${isInWishlist(product?.id) ? 'is-active' : ''}`}
+                onClick={() => product && toggleWishlist(product)}
+                aria-label={isInWishlist(product?.id) ? "Remove from Wishlist" : "Add to Wishlist"}
+                title={isInWishlist(product?.id) ? "In Wishlist" : "Add to Wishlist"}
+              >
+                <Heart size={20} fill={isInWishlist(product?.id) ? "#ef4444" : "none"} color={isInWishlist(product?.id) ? "#ef4444" : "#1f2937"} strokeWidth={isInWishlist(product?.id) ? 0 : 2} />
+              </button>
+              <button
+                type="button"
                 className="pd-image-share-trigger"
                 onClick={shareToWhatsApp}
                 aria-label="Share product on WhatsApp"
@@ -1101,7 +1138,7 @@ export default function ProductDetails() {
           {/* Subtitle & Title */}
           <div className="pd-nike-header-block">
             <span className="pd-nike-category">
-              {(language === 'ta' ? getCategoryDisplayName(product.category_name, 'ta') : product.category_name) || (language === 'ta' ? 'மூலிகை பராமரிப்பு' : 'Herbal Care')} • {language === 'ta' ? '100% மூலிகை' : '100% Botanical'}
+             {getCategoryDisplayName(product.category_name, language) || (language === 'ta' ? 'மூலிகை பராமரிப்பு' : 'Herbal Care')} • {language === 'ta' ? '100% மூலிகை' : '100% Botanical'}
             </span>
             <h1 className="pd-nike-title">{translatedName}</h1>
             {hasValidReviews ? (
@@ -1245,6 +1282,15 @@ export default function ProductDetails() {
             <div className="pd-nike-share-row">
               <button
                 type="button"
+                className={`pd-nike-share-item pd-nike-wishlist-item ${isInWishlist(product?.id) ? 'is-active' : ''}`}
+                onClick={() => product && toggleWishlist(product)}
+                title={isInWishlist(product?.id) ? "In Wishlist" : "Add to Wishlist"}
+              >
+                <Heart size={16} fill={isInWishlist(product?.id) ? "#ef4444" : "none"} color={isInWishlist(product?.id) ? "#ef4444" : "#4b5563"} />
+                <span>{isInWishlist(product?.id) ? 'Wishlisted' : 'Wishlist'}</span>
+              </button>
+              <button
+                type="button"
                 className="pd-nike-share-item"
                 onClick={shareToWhatsApp}
                 title="Share on WhatsApp"
@@ -1300,7 +1346,7 @@ export default function ProductDetails() {
               <div className="pd-nike-delivery-success">
                 <CheckCircle size={15} color="#16a34a" />
                 <span>
-                  Deliverable to {deliveryInfo.location ? `${deliveryInfo.location}` : `PIN ${deliveryInfo.pin}`} in ${deliveryInfo.timeline}
+                  Deliverable to {deliveryInfo.location ? `${deliveryInfo.location}` : `PIN ${deliveryInfo.pin}`} in {deliveryInfo.timeline}
                 </span>
               </div>
             )}
@@ -1315,23 +1361,54 @@ export default function ProductDetails() {
           {/* Nike Signature Collapsible Accordion Sections */}
           <div className="pd-nike-accordion">
             {/* 1. Description */}
-            <div className="pd-nike-accordion-item">
+            <div className="pd-nike-accordion-item pd-desc-accordion-card">
               <button
                 type="button"
                 className="pd-nike-accordion-header"
                 onClick={() => toggleAccordion('desc')}
                 aria-expanded={openAccordion.desc}
               >
-                <span>{t('descriptionLabel') || 'Product Description'}</span>
+                <div className="pd-accordion-title-wrap">
+                  <Sparkles size={18} className="text-emerald pd-accordion-title-icon" />
+                  <span>{t('descriptionLabel') || 'Product Description'}</span>
+                </div>
                 {openAccordion.desc ? <ChevronUp size={19} /> : <ChevronDown size={19} />}
               </button>
               {openAccordion.desc && (
-                <div className="pd-nike-accordion-body">
-                  {(translatedDesc || '').split(/\n\n+/).map((para, idx) => (
-                    <p key={idx} className="pd-nike-desc-p">
-                      {para.trim()}
-                    </p>
-                  ))}
+                <div className="pd-nike-accordion-body pd-desc-enhanced-body">
+                  {/* Trust / Purity Pill Strip */}
+                  <div className="pd-desc-purity-strip">
+                    <span className="pd-desc-purity-tag">
+                      <Leaf size={13} className="text-emerald" /> 100% Herbal
+                    </span>
+                    <span className="pd-desc-purity-tag">
+                      <Sparkles size={13} className="text-emerald" /> Authentic Recipe
+                    </span>
+                    <span className="pd-desc-purity-tag">
+                      <ShieldCheck size={13} className="text-emerald" /> Quality Tested
+                    </span>
+                  </div>
+
+                  {/* Enhanced Description Content */}
+                  <div className="pd-desc-card-container">
+                    {(() => {
+                      const paras = (translatedDesc || '').split(/\n\n+/).filter(Boolean);
+                      if (paras.length === 0) return null;
+                      return paras.map((para, idx) => (
+                        <div key={idx} className={`pd-desc-card-block ${idx === 0 ? 'is-lead-block' : ''}`}>
+                          <p className="pd-desc-card-text">
+                            {para.trim()}
+                          </p>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+
+                  {/* Brand Guarantee Note */}
+                  <div className="pd-desc-trust-footer">
+                    <span className="pd-desc-trust-icon">✓</span>
+                    <span>Traditional botanical goodness, lovingly crafted & freshly packed by Dharani Herbals.</span>
+                  </div>
                 </div>
               )}
             </div>
@@ -1719,25 +1796,30 @@ export default function ProductDetails() {
             />
             <div className="pd-fixed-bar-meta">
               <span className="pd-fixed-bar-title">{translatedName || formatProductDisplayName(product.name)}</span>
-              <span className="pd-fixed-bar-variant">
-                {selectedVariation ? formatVariationLabel(selectedVariation, product) : (product.pack_size || formatProductPackSize(product) || 'Standard')}
-              </span>
             </div>
           </div>
 
-          {/* Pricing Box */}
-          <div className="pd-sticky-price-box">
-            <div className="pd-sticky-prices">
-              <span className="pd-sticky-active-price">
-                {formatCurrency(selectedVariation?.price || product.price)}
+          {/* Pricing Box -> Redesigned into Exclusive Emerald Price & Pack Badge */}
+          <div className="pd-sticky-price-card">
+            <div className="pd-sticky-price-row">
+              <span className="pd-sticky-rs-label">Rs.</span>
+              <span className="pd-sticky-amount">
+                {String(selectedVariation?.price || product.price || '').replace(/[^0-9.]/g, '')}
               </span>
-              {selectedVariation?.originalPrice && (
-                <span className="pd-sticky-original-price">{formatCurrency(selectedVariation.originalPrice)}</span>
+              {selectedVariation?.originalPrice && parseFloat(String(selectedVariation.originalPrice).replace(/[^0-9.]/g, '')) > parseFloat(String(selectedVariation?.price || product.price || '').replace(/[^0-9.]/g, '')) && (
+                <span className="pd-sticky-original-price">
+                  {formatCurrency(selectedVariation.originalPrice)}
+                </span>
               )}
             </div>
-            <span className="pd-sticky-pack-label mobile-only">
-              {selectedVariation ? formatVariationLabel(selectedVariation, product) : (product.pack_size || formatProductPackSize(product) || 'Standard')}
-            </span>
+            <div className="pd-sticky-pack-badge">
+              <span className="pd-sticky-pack-dot"></span>
+              <span className="pd-sticky-pack-text">
+                {selectedVariation 
+                  ? formatVariationLabel(selectedVariation, product) 
+                  : (product.pack_size || formatProductPackSize(product) || 'Standard')}
+              </span>
+            </div>
           </div>
 
           {/* Buttons: Add to Cart & Buy Now */}
@@ -1771,7 +1853,7 @@ export default function ProductDetails() {
               aria-label="Share on WhatsApp"
             >
               <MessageCircle size={18} />
-              <span className="desktop-only">Share</span>
+              <span>Share</span>
             </button>
           </div>
         </div>

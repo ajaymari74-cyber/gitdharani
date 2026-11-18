@@ -26,13 +26,14 @@ export default function Profile() {
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState(location.state?.activeTab || 'account'); // Added tab state
+  const [activeTab, setActiveTab] = useState(location.state?.activeTab || 'account');
   const [addresses, setAddresses] = useState([]);
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [profileFormData, setProfileFormData] = useState({ name: '', email: '' });
+  const [profileFormData, setProfileFormData] = useState({ name: '', email: '', mobile: '' });
   const [profileUpdating, setProfileUpdating] = useState(false);
-  
+  const [showMobileConfirmModal, setShowMobileConfirmModal] = useState(false);
+
   // ── Wishlist Add All ──
   const [addingAllToCart, setAddingAllToCart] = useState(false);
   const [addAllMessage, setAddAllMessage] = useState(null);
@@ -48,16 +49,92 @@ export default function Profile() {
   const [mobileResendTimer, setMobileResendTimer] = useState(0);
   const mobileResendRef = useRef(null);
   const [addressToDelete, setAddressToDelete] = useState(null);
+  const [deletingAddressId, setDeletingAddressId] = useState(null);
   const [isStateDropdownOpen, setIsStateDropdownOpen] = useState(false);
   const [addressFormData, setAddressFormData] = useState({
-    id: null, full_name: '', phone: '', address: '', city: '', state: '', pincode: '', latitude: '11.0168', longitude: '76.9558', is_default: false
-  });
+    id: null, full_name: '', phone: '', address: '', city: '', state: '', pincode: '', latitude: '11.0168', longitude: '76.9558', is_default: false});
+  const [stateSearchText, setStateSearchText] = useState('');
   const { products, refreshProducts } = useProducts();
   const { addToCart, refreshCart, cartItems } = useCart();
   const { wishlist, removeFromWishlist } = useWishlist();
   const { language, t } = useLanguage();
   const { openLoginModal } = useAuthModal();
   const navigate = useNavigate();
+
+  // Sync updated addresses across React state, localStorage, and other active components
+  const syncAddressesEverywhere = (updatedList, deletedId = null) => {
+    setAddresses(updatedList);
+
+    try {
+      const storedUserRaw = localStorage.getItem('user');
+      if (storedUserRaw) {
+        const parsedUser = JSON.parse(storedUserRaw);
+        if (Array.isArray(parsedUser.addresses)) {
+          parsedUser.addresses = updatedList;
+        }
+        if (parsedUser.user && Array.isArray(parsedUser.user.addresses)) {
+          parsedUser.user.addresses = updatedList;
+        }
+        localStorage.setItem('user', JSON.stringify(parsedUser));
+      }
+
+      if (deletedId !== null) {
+        ['selectedAddress', 'dharani_selected_address', 'checkout_address'].forEach((cacheKey) => {
+          const cachedRaw = localStorage.getItem(cacheKey);
+          if (cachedRaw) {
+            try {
+              const cachedObj = JSON.parse(cachedRaw);
+              if (cachedObj && String(cachedObj.id || cachedObj.address_id) === String(deletedId)) {
+                localStorage.removeItem(cacheKey);
+              }
+            } catch {
+              if (String(cachedRaw) === String(deletedId)) {
+                localStorage.removeItem(cacheKey);
+              }
+            }
+          }
+        });
+      }
+    } catch (storageErr) {
+      console.error('Failed to sync addresses in localStorage', storageErr);
+    }
+
+    window.dispatchEvent(new CustomEvent('addresses-updated', { detail: { addresses: updatedList, deletedId } }));
+  };
+
+  // Always fetch fresh addresses directly from the database (bypassing browser cache)
+  const fetchUserAddresses = async (userId) => {
+    if (!userId) return [];
+    try {
+      const res = await fetch(`${API_BASE_URL}/address/${userId}/?_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'ngrok-skip-browser-warning': 'true',
+          'Cache-Control': 'no-cache'
+        }
+      });
+      if (!res.ok) return [];
+      const addressData = await res.json();
+
+      let rawList = [];
+      if (addressData && Array.isArray(addressData.addresses)) {
+        rawList = addressData.addresses;
+      } else if (Array.isArray(addressData)) {
+        rawList = addressData;
+      } else if (addressData && Array.isArray(addressData.results)) {
+        rawList = addressData.results;
+      }
+
+      const activeAddresses = rawList.filter(
+        (addr) => addr && !addr.is_deleted && addr.is_active !== false
+      );
+      syncAddressesEverywhere(activeAddresses);
+      return activeAddresses;
+    } catch (err) {
+      console.error('Failed to fetch addresses', err);
+      return [];
+    }
+  };
 
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
@@ -96,12 +173,16 @@ export default function Profile() {
             let backendUser = customerData;
             if (Array.isArray(backendUser) && backendUser.length > 0) backendUser = backendUser[0];
             if (backendUser && (backendUser.email || backendUser.name)) {
-               const merged = { ...actualUser, ...backendUser };
-               const updatedData = { ...parsed, user: merged };
-               localStorage.setItem('user', JSON.stringify(updatedData));
-               setUserData(updatedData);
+              const merged = { ...actualUser, ...backendUser };
+              const updatedData = { ...parsed, user: merged };
+              localStorage.setItem('user', JSON.stringify(updatedData));
+              setUserData(updatedData);
             }
-          }).catch(() => {});
+          }).catch(() => { });
+
+          // Fetch fresh addresses from database on mount
+          fetchUserAddresses(actualUser.id);
+
           const role1 = (parsed.role || '').toLowerCase();
           const role2 = (parsed.user?.role || '').toLowerCase();
           const type1 = (parsed.user_type || '').toLowerCase();
@@ -135,20 +216,6 @@ export default function Profile() {
               } else if (data && Array.isArray(data.value)) {
                 fetchedOrders = data.value;
               }
-
-              // Fetch addresses for this user
-              fetch(`${API_BASE_URL}/address/${actualUser.id}/`, {
-                headers: { 'ngrok-skip-browser-warning': 'true' }
-              })
-                .then(res => res.json())
-                .then(addressData => {
-                  if (addressData && Array.isArray(addressData.addresses)) {
-                    setAddresses(addressData.addresses);
-                  } else if (Array.isArray(addressData)) {
-                    setAddresses(addressData);
-                  }
-                })
-                .catch(err => console.error("Failed to fetch addresses", err));
 
               // Now fetch the details for each order to get the items
               try {
@@ -206,6 +273,9 @@ export default function Profile() {
     localStorage.removeItem('dharani_saved_mobile');
     localStorage.removeItem('dharani_cart');
     localStorage.removeItem('dharani_cart_offline_backup');
+    localStorage.removeItem('selectedAddress');
+    localStorage.removeItem('dharani_selected_address');
+    localStorage.removeItem('checkout_address');
     window.dispatchEvent(new Event('user-login-status-changed'));
     if (refreshProducts) {
       refreshProducts();
@@ -217,8 +287,7 @@ export default function Profile() {
     navigate('/');
   };
 
-  const handleEditProfileSubmit = async (e) => {
-    e.preventDefault();
+  const executeSaveProfile = async (cleanMobile) => {
     if (!userData || (!userData.id && !userData.user?.id)) return;
     const actualUser = userData.user || userData;
     setProfileUpdating(true);
@@ -238,18 +307,27 @@ export default function Profile() {
         },
         body: JSON.stringify({
           name: profileFormData.name,
-          email: profileFormData.email
+          email: profileFormData.email,
+          mobile: cleanMobile,
+          phone_number: cleanMobile
         })
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        const updatedUser = { ...actualUser, name: profileFormData.name, email: profileFormData.email };
+        const updatedUser = {
+          ...actualUser,
+          name: profileFormData.name,
+          email: profileFormData.email,
+          mobile: cleanMobile,
+          phone_number: cleanMobile
+        };
         const updatedUserData = { ...userData, user: updatedUser };
         localStorage.setItem('user', JSON.stringify(updatedUserData));
         setUserData(updatedUserData);
         setIsEditingProfile(false);
+        showAppToast('Profile updated successfully');
       } else {
         alert(data.message || 'Failed to update profile');
       }
@@ -259,6 +337,32 @@ export default function Profile() {
     } finally {
       setProfileUpdating(false);
     }
+  };
+
+  const handleEditProfileSubmit = async (e) => {
+    e.preventDefault();
+    if (!userData || (!userData.id && !userData.user?.id)) return;
+    const actualUser = userData.user || userData;
+
+    const cleanMobile = (profileFormData.mobile || '').replace(/\D/g, '');
+    if (cleanMobile.length !== 10) {
+      alert('Please enter a valid 10-digit mobile number.');
+      return;
+    }
+
+    const currentMobile = (actualUser.mobile || actualUser.phone_number || '').replace(/\D/g, '').slice(-10);
+    if (cleanMobile !== currentMobile) {
+      setShowMobileConfirmModal(true);
+      return;
+    }
+
+    await executeSaveProfile(cleanMobile);
+  };
+
+  const handleConfirmMobileSave = async () => {
+    const cleanMobile = (profileFormData.mobile || '').replace(/\D/g, '');
+    setShowMobileConfirmModal(false);
+    await executeSaveProfile(cleanMobile);
   };
 
   // ── Mobile number change: Step 1 – Send OTP ──
@@ -399,16 +503,7 @@ export default function Profile() {
       });
 
       if (res.ok) {
-        // Refresh addresses
-        const addrRes = await fetch(`${API_BASE_URL}/address/${actualUser.id}/`, { headers: { 'ngrok-skip-browser-warning': 'true' } });
-        const addrData = await addrRes.json();
-
-        if (addrData && Array.isArray(addrData.addresses)) {
-          setAddresses(addrData.addresses);
-        } else {
-          setAddresses(Array.isArray(addrData) ? addrData : []);
-        }
-
+        await fetchUserAddresses(actualUser.id);
         setShowAddressForm(false);
         setAddressFormData({ id: null, full_name: '', phone: '', address: '', city: '', state: '', pincode: '', latitude: '11.0168', longitude: '76.9558', is_default: false });
       } else {
@@ -420,25 +515,67 @@ export default function Profile() {
   };
 
   const confirmDeleteAddress = async () => {
-    if (!addressToDelete || !userData) return;
+    if (!addressToDelete || !userData || deletingAddressId) return;
 
     const id = addressToDelete;
     const actualUser = userData.user || userData;
+    setDeletingAddressId(id);
+
     try {
-      const res = await fetch(`${API_BASE_URL}/address/${id}/`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
-        },
-        body: JSON.stringify({ address_id: id })
+      const requestHeaders = {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true'
+      };
+      const requestBody = JSON.stringify({
+        address_id: id,
+        id,
+        user_id: actualUser.id
       });
+
+      let res = await fetch(`${API_BASE_URL}/address/${id}/?user_id=${actualUser.id}`, {
+        method: 'DELETE',
+        headers: requestHeaders,
+        body: requestBody
+      });
+
+      // Fallback if backend handles DELETE on /address/<user_id>/ with address_id in body
+      if (!res.ok && (res.status === 404 || res.status === 405)) {
+        res = await fetch(`${API_BASE_URL}/address/${actualUser.id}/`, {
+          method: 'DELETE',
+          headers: requestHeaders,
+          body: requestBody
+        });
+      }
+
       if (res.ok) {
-        setAddresses(addresses.filter(a => a.id !== id));
+        const remaining = addresses.filter(
+          (a) => String(a.id || a.address_id) !== String(id)
+        );
+        syncAddressesEverywhere(remaining, id);
+
+        if (addressFormData.id && String(addressFormData.id) === String(id)) {
+          setShowAddressForm(false);
+          setAddressFormData({ id: null, full_name: '', phone: '', address: '', city: '', state: '', pincode: '', latitude: '11.0168', longitude: '76.9558', is_default: false });
+        }
+
+        // Re-fetch from database to confirm permanent deletion
+        await fetchUserAddresses(actualUser.id);
+        showAppToast('Address deleted permanently');
+      } else {
+        let errorMessage = 'Failed to delete address. Please try again.';
+        try {
+          const errData = await res.json();
+          errorMessage = errData.message || errData.error || errData.detail || errorMessage;
+        } catch {
+          // Ignore non-JSON error body
+        }
+        alert(errorMessage);
       }
     } catch (err) {
-      console.error(err);
+      console.error('Error deleting address:', err);
+      alert('Network error while deleting address. Please try again.');
     } finally {
+      setDeletingAddressId(null);
       setAddressToDelete(null);
     }
   };
@@ -477,7 +614,7 @@ export default function Profile() {
 
   const handleAddAllToCart = async () => {
     if (wishlist.length === 0 || addingAllToCart) return;
-    
+
     setAddingAllToCart(true);
     setAddAllMessage(null);
 
@@ -487,7 +624,7 @@ export default function Profile() {
     for (const item of wishlist) {
       const pId = item.product || item.product_id || item.id;
       const matchedProduct = products.find(p => String(p.id) === String(pId));
-      
+
       if (!matchedProduct) continue;
 
       // Check if already in cart
@@ -552,8 +689,8 @@ export default function Profile() {
           <User size={48} color="#10b981" style={{ margin: '0 auto 16px' }} />
           <h2 style={{ fontSize: '1.4rem', fontWeight: 700, marginBottom: '8px', color: '#111827' }}>Please Sign In</h2>
           <p style={{ color: '#6b7280', fontSize: '0.95rem', marginBottom: '24px' }}>Sign in to view your profile settings, order history, saved addresses, and wishlist items.</p>
-          <button 
-            onClick={openLoginModal} 
+          <button
+            onClick={openLoginModal}
             style={{ width: '100%', padding: '12px 20px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 600, fontSize: '1rem', cursor: 'pointer' }}
           >
             Sign In / Register
@@ -649,35 +786,77 @@ export default function Profile() {
               </div>
 
               {isEditingProfile ? (
-                <form className="address-form" onSubmit={handleEditProfileSubmit}>
-                  <div className="form-group">
-                    <label>Full Name</label>
-                    <input
-                      type="text"
-                      value={profileFormData.name}
-                      onChange={(e) => setProfileFormData({ ...profileFormData, name: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Email Address</label>
-                    <input
-                      type="email"
-                      value={profileFormData.email}
-                      onChange={(e) => setProfileFormData({ ...profileFormData, email: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="form-group" style={{ opacity: 0.6 }}>
-                    <label>Mobile Number</label>
-                    <input type="text" value={mobile} disabled />
-                    <small style={{ color: '#6b7280', fontSize: '0.78rem', marginTop: '4px', display: 'block' }}>To change your mobile number, use the "Change" option on the profile view.</small>
-                  </div>
-                  <div className="address-form-actions">
-                    <button type="button" className="btn-cancel" onClick={() => setIsEditingProfile(false)} disabled={profileUpdating}>Cancel</button>
-                    <button type="submit" className="btn-save" disabled={profileUpdating}>{profileUpdating ? 'Saving...' : 'Save Profile'}</button>
-                  </div>
-                </form>
+                <>
+                  <form className="address-form" onSubmit={handleEditProfileSubmit}>
+                    <div className="form-group">
+                      <label>Full Name</label>
+                      <input
+                        type="text"
+                        value={profileFormData.name}
+                        onChange={(e) => setProfileFormData({ ...profileFormData, name: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Email Address</label>
+                      <input
+                        type="email"
+                        value={profileFormData.email}
+                        onChange={(e) => setProfileFormData({ ...profileFormData, email: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Mobile Number</label>
+                      <input
+                        type="tel"
+                        maxLength={10}
+                        placeholder="Enter 10-digit mobile number"
+                        value={profileFormData.mobile}
+                        onChange={(e) =>
+                          setProfileFormData({
+                            ...profileFormData,
+                            mobile: e.target.value.replace(/\D/g, '').slice(0, 10)
+                          })
+                        }
+                        required
+                      />
+                    </div>
+                    <div className="address-form-actions">
+                      <button type="button" className="btn-cancel" onClick={() => setIsEditingProfile(false)} disabled={profileUpdating}>Cancel</button>
+                      <button type="submit" className="btn-save" disabled={profileUpdating}>{profileUpdating ? 'Saving...' : 'Save Profile'}</button>
+                    </div>
+                  </form>
+
+                  {showMobileConfirmModal && (
+                    <div className="delete-modal-overlay">
+                      <div className="delete-modal">
+                        <h3>Confirm Mobile Number</h3>
+                        <p>
+                          Are you sure you want to update and save your mobile number to <strong>+91 {profileFormData.mobile}</strong>?
+                        </p>
+                        <div className="delete-modal-actions">
+                          <button
+                            type="button"
+                            className="btn-cancel"
+                            onClick={() => setShowMobileConfirmModal(false)}
+                            disabled={profileUpdating}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-save"
+                            onClick={handleConfirmMobileSave}
+                            disabled={profileUpdating}
+                          >
+                            {profileUpdating ? 'Saving...' : 'Yes, Save'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
               ) : (
                 <>
                   {mobileOtpSuccess && (
@@ -707,9 +886,17 @@ export default function Profile() {
                       <div className="info-details" style={{ flex: 1 }}>
                         <label>Mobile Number</label>
 
-                        {mobileChangeMode === 'idle' && (
-                          <div className="profile-mobile-view">
+                       {mobileChangeMode === 'idle' && (
+                          <div className="profile-mobile-view" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <p>{mobile}</p>
+                            <button 
+                              type="button" 
+                              className="btn-change-mobile"
+                              style={{ background: 'transparent', border: 'none', color: '#16a34a', fontWeight: '600', cursor: 'pointer' }}
+                              onClick={() => { setMobileChangeMode('input'); setNewMobile(''); }}
+                            >
+                              Change Phone Number
+                            </button>
                           </div>
                         )}
 
@@ -737,7 +924,10 @@ export default function Profile() {
                           <div className="profile-mobile-otp-row">
                             <p className="profile-otp-hint">OTP sent to <strong>+91 {newMobile}</strong></p>
                             <input
-                              type="tel" autoComplete="one-time-code" className="mobile-change-input" placeholder="Enter 6-digit OTP"
+                              type="tel"
+                              autoComplete="one-time-code"
+                              className="mobile-change-input"
+                              placeholder="Enter 6-digit OTP"
                               maxLength={6}
                               value={mobileOtp}
                               onChange={(e) => { setMobileOtp(e.target.value.replace(/\D/g, '').slice(0, 6)); setMobileOtpError(''); }}
@@ -770,7 +960,8 @@ export default function Profile() {
                     onClick={() => {
                       setProfileFormData({
                         name: (name !== 'Vedan Customer' && name !== 'Dharani Customer') ? name : '',
-                        email: email !== 'No email provided' ? email : ''
+                        email: email !== 'No email provided' ? email : '',
+                        mobile: (user.mobile || user.phone_number || '').replace(/\D/g, '').slice(-10)
                       });
                       setIsEditingProfile(true);
                     }}
@@ -814,9 +1005,12 @@ export default function Profile() {
                       </div>
                       <div className="form-group relative">
                         <label>State</label>
-                        <div
+                                                <div
                           className="custom-select-trigger"
-                          onClick={() => setIsStateDropdownOpen(!isStateDropdownOpen)}
+                          onClick={() => {
+                            setIsStateDropdownOpen(!isStateDropdownOpen);
+                            setStateSearchText('');
+                          }}
                         >
                           <span style={{ color: addressFormData.state ? '#0f172a' : '#94a3b8' }}>
                             {addressFormData.state || 'Select State'}
@@ -826,20 +1020,57 @@ export default function Profile() {
 
                         {isStateDropdownOpen && (
                           <>
-                            <div className="custom-select-overlay" onClick={() => setIsStateDropdownOpen(false)} />
+                            <div className="custom-select-overlay" onClick={() => { setIsStateDropdownOpen(false); setStateSearchText(''); }} />
                             <div className="custom-select-dropdown">
-                              {INDIAN_STATES.map(state => (
-                                <div
-                                  key={state}
-                                  className={`custom-select-option ${addressFormData.state === state ? 'selected' : ''}`}
-                                  onClick={() => {
-                                    setAddressFormData(prev => ({ ...prev, state }));
-                                    setIsStateDropdownOpen(false);
+                              {/* Simple Search Input Box - No Icons */}
+                              <div style={{ padding: '8px 12px', borderBottom: '1px solid #e2e8f0', background: '#fff' }} onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  type="text"
+                                  style={{
+                                    width: '100%',
+                                    padding: '8px 12px',
+                                    border: '1px solid #cbd5e1',
+                                    borderRadius: '6px',
+                                    outline: 'none',
+                                    fontSize: '0.9rem',
+                                    boxSizing: 'border-box'
                                   }}
-                                >
-                                  {state}
-                                </div>
-                              ))}
+                                  placeholder="Type state name..."
+                                  value={stateSearchText}
+                                  onChange={(e) => setStateSearchText(e.target.value)}
+                                  autoFocus
+                                />
+                              </div>
+
+                              {/* Filtered States List */}
+                              <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                                {INDIAN_STATES.filter(state => {
+                                  if (!stateSearchText.trim()) return true;
+                                  return state.toLowerCase().startsWith(stateSearchText.trim().toLowerCase());
+                                }).map(state => (
+                                  <div
+                                    key={state}
+                                    className={`custom-select-option ${addressFormData.state === state ? 'selected' : ''}`}
+                                    onClick={() => {
+                                      setAddressFormData(prev => ({ ...prev, state }));
+                                      setIsStateDropdownOpen(false);
+                                      setStateSearchText('');
+                                    }}
+                                  >
+                                    {state}
+                                  </div>
+                                ))}
+
+                                {/* No states found message */}
+                                {INDIAN_STATES.filter(state => {
+                                  if (!stateSearchText.trim()) return true;
+                                  return state.toLowerCase().startsWith(stateSearchText.trim().toLowerCase());
+                                }).length === 0 && (
+                                  <div style={{ padding: '16px', textAlign: 'center', color: '#94a3b8', fontSize: '0.9rem' }}>
+                                    No states found
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </>
                         )}
@@ -859,24 +1090,27 @@ export default function Profile() {
                 <div className="address-list">
                   {addresses.length > 0 ? (
                     <>
-                      {addresses.map(addr => (
-                        <div key={addr.id} className="address-card">
-                          <div className="address-card-header">
-                            <h4>{addr.full_name}</h4>
-                            <span className="address-phone">{addr.phone}</span>
+                      {addresses.map(addr => {
+                        const addrId = addr.id || addr.address_id;
+                        return (
+                          <div key={addrId} className="address-card">
+                            <div className="address-card-header">
+                              <h4>{addr.full_name}</h4>
+                              <span className="address-phone">{addr.phone}</span>
+                            </div>
+                            <p className="address-text">{addr.address}</p>
+                            <p className="address-city">{addr.city}, {addr.state} - {addr.pincode}</p>
+                            <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+                              <button className="btn-edit-address" onClick={() => handleEditAddress(addr)}>
+                                Edit
+                              </button>
+                              <button className="btn-delete-address" onClick={() => setAddressToDelete(addrId)}>
+                                <Trash2 size={16} /> Delete
+                              </button>
+                            </div>
                           </div>
-                          <p className="address-text">{addr.address}</p>
-                          <p className="address-city">{addr.city}, {addr.state} - {addr.pincode}</p>
-                          <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-                            <button className="btn-edit-address" onClick={() => handleEditAddress(addr)}>
-                              Edit
-                            </button>
-                            <button className="btn-delete-address" onClick={() => setAddressToDelete(addr.id)}>
-                              <Trash2 size={16} /> Delete
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                       <div style={{ display: 'flex', justifyContent: 'center', marginTop: '24px' }}>
                         <button className="btn-add-address" onClick={() => {
                           setAddressFormData({ id: null, full_name: '', phone: '', address: '', city: '', state: '', pincode: '', latitude: '11.0168', longitude: '76.9558', is_default: false });
@@ -902,8 +1136,20 @@ export default function Profile() {
                     <h3>Delete Address</h3>
                     <p>Are you sure you want to delete this address? This action cannot be undone.</p>
                     <div className="delete-modal-actions">
-                      <button className="btn-cancel" onClick={() => setAddressToDelete(null)}>Cancel</button>
-                      <button className="btn-confirm-delete" onClick={confirmDeleteAddress}>Yes, Delete</button>
+                      <button
+                        className="btn-cancel"
+                        onClick={() => setAddressToDelete(null)}
+                        disabled={deletingAddressId !== null}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        className="btn-confirm-delete"
+                        onClick={confirmDeleteAddress}
+                        disabled={deletingAddressId !== null}
+                      >
+                        {deletingAddressId !== null ? 'Deleting...' : 'Yes, Delete'}
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1004,8 +1250,8 @@ export default function Profile() {
                               </button>
                             )}
                             <button
-                                className="btn-track-order"
-                                onClick={() => navigate(`/track/${order.id || order.order_id}`)}
+                              className="btn-track-order"
+                              onClick={() => navigate(`/track/${order.id || order.order_id}`)}
                             >
                               Track Order
                             </button>
@@ -1033,8 +1279,8 @@ export default function Profile() {
                   <p>{wishlist.length} item{wishlist.length === 1 ? '' : 's'} saved</p>
                 </div>
                 {wishlist.length > 0 && (
-                  <button 
-                    className="btn-add-all-to-cart" 
+                  <button
+                    className="btn-add-all-to-cart"
                     onClick={handleAddAllToCart}
                     disabled={addingAllToCart}
                   >
@@ -1048,15 +1294,13 @@ export default function Profile() {
                 <div className={`address-message ${addAllMessage.type === 'success' ? 'success' : 'error'}`} style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span>{addAllMessage.text}</span>
                   {addAllMessage.type === 'success' && (
-                    <button 
-                      onClick={() => navigate('/profile', { state: { activeTab: 'cart' } })} // Though cart is generally a drawer, navigate might open cart or redirect. Let's redirect to /shop or open cart. Wait, cart is opened by addToCart or navbar.
+                    <button
+                      onClick={() => navigate('/profile', { state: { activeTab: 'cart' } })}
                       style={{ background: 'transparent', border: '1px solid #10b981', color: '#10b981', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}
                       onClickCapture={(e) => {
-                         e.preventDefault();
-                         // The site uses a cart drawer controlled by context, we should tell user to click cart icon or reload
-                         window.scrollTo({ top: 0, behavior: 'smooth' });
-                         // Also clear message
-                         setTimeout(() => setAddAllMessage(null), 3000);
+                        e.preventDefault();
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        setTimeout(() => setAddAllMessage(null), 3000);
                       }}
                     >
                       View Cart

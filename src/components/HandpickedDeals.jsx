@@ -3,50 +3,99 @@ import { useNavigate } from 'react-router-dom';
 import { useProducts } from '../context/ProductsContext';
 import { useLanguage } from '../context/LanguageContext';
 import { API_BASE_URL, resolveMediaUrl } from '../services/api';
-import { formatProductDisplayName, formatProductPackSize, formatCurrency, getProductFallbackImage } from '../utils/productFormatters';
+import { formatProductDisplayName, formatProductPackSize, formatCurrency } from '../utils/productFormatters';
 import ProductCard from './ProductCard';
 import './HandpickedDeals.css';
 
 export default function HandpickedDeals() {
   const { products, getProductById } = useProducts();
   const { t } = useLanguage();
-  const [newProductsList, setNewProductsList] = useState([]);
-  const [loadingNew, setLoadingNew] = useState(true);
+  const [newProductsList, setNewProductsList] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem('dharani_new_products_live_mem');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  });
+  const [loadingNew, setLoadingNew] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
     
-    // Fetch dynamically from user-provided endpoint http://127.0.0.1:8000/herbal/new-products/ with fallback
+    // Fetch dynamically from server endpoint /herbal/new-products/ with instant race
     const fetchNewProducts = async () => {
-      const endpoints = [
-        'http://127.0.0.1:8000/herbal/new-products/',
-        `${API_BASE_URL}/new-products/`
-      ];
+      const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+      const endpoints = isHttps
+        ? [
+            'https://vedanmart.com/herbal/new-products/',
+            '/herbal/new-products/',
+            `${API_BASE_URL}/new-products/`,
+            'https://www.dharaniherbbals.in/herbal/new-products/',
+            '/api/new-products/',
+            'http://179.197.251.47:30080/herbal/new-products/'
+          ]
+        : [
+            'http://179.197.251.47:30080/herbal/new-products/',
+            'https://vedanmart.com/herbal/new-products/',
+            '/herbal/new-products/',
+            `${API_BASE_URL}/new-products/`,
+            'https://www.dharaniherbbals.in/herbal/new-products/',
+            '/api/new-products/'
+          ];
 
-      for (const url of endpoints) {
+      const applyNewData = (rawList) => {
+        if (!isMounted || !Array.isArray(rawList)) return;
+        const activeList = rawList.filter(item => item.is_new !== false && item.is_active !== false);
+        setNewProductsList(activeList);
+        setLoadingNew(false);
+        try {
+          sessionStorage.setItem('dharani_new_products_live_mem', JSON.stringify(activeList));
+        } catch (e) {}
+      };
+
+      const fetchSingle = async (url) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2500);
         try {
           const res = await fetch(url, {
-            headers: { 'ngrok-skip-browser-warning': 'true' }
-          });
-          if (res.ok) {
-            const json = await res.json();
-            const rawList = Array.isArray(json) ? json : (json.data || json.results || []);
-            if (rawList && rawList.length > 0) {
-              if (isMounted) {
-                setNewProductsList(rawList);
-                setLoadingNew(false);
-              }
-              return;
+            cache: 'no-store',
+            signal: controller.signal,
+            headers: {
+              'Accept': 'application/json',
+              'ngrok-skip-browser-warning': 'true'
             }
-          }
+          });
+          clearTimeout(timeoutId);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const json = await res.json();
+          const rawList = Array.isArray(json) ? json : (json.data || json.results || []);
+          if (Array.isArray(rawList)) return rawList;
+          throw new Error('Empty');
         } catch (e) {
-          // try next endpoint
+          clearTimeout(timeoutId);
+          throw e;
+        }
+      };
+
+      // Fast race top 3
+      try {
+        const fastest = await Promise.any(endpoints.slice(0, 3).map(fetchSingle));
+        applyNewData(fastest);
+        return;
+      } catch (raceErr) {
+        for (const url of endpoints.slice(3)) {
+          try {
+            const rawList = await fetchSingle(url);
+            applyNewData(rawList);
+            return;
+          } catch (e) {}
         }
       }
 
-      if (isMounted) {
-        setLoadingNew(false);
-      }
+      if (isMounted) setLoadingNew(false);
     };
 
     fetchNewProducts();
@@ -57,16 +106,24 @@ export default function HandpickedDeals() {
   }, []);
 
   const dealProducts = useMemo(() => {
-    // 1. If dynamic products arrived from new-products API:
+    // 1. Strictly display dynamic products from the new-products API
     if (newProductsList && newProductsList.length > 0) {
       return newProductsList.map((item) => {
         // If product already exists in main catalog with full enriched data, merge it!
         const existing = (getProductById ? getProductById(item.id) : null) || (products || []).find(p => p.id === item.id);
+        const itemImg = item.image ? resolveMediaUrl(item.image) : null;
+        
         if (existing) {
           return {
             ...existing,
-            badge: existing.badge || 'NEW',
-            badgeColor: existing.badgeColor || 'green'
+            ...item,
+            name: formatProductDisplayName(item.name || existing.name),
+            raw_name: item.name || existing.raw_name,
+            tamil_name: formatProductDisplayName(item.tamil_name || existing.tamil_name),
+            price: (item.customer_price || item.price) ? formatCurrency(item.customer_price || item.price) : existing.price,
+            image: itemImg || existing.image || (Array.isArray(item.extra_images) && item.extra_images[0] ? resolveMediaUrl(item.extra_images[0]) : ''),
+            badge: 'NEW',
+            badgeColor: 'green'
           };
         }
 
@@ -82,7 +139,7 @@ export default function HandpickedDeals() {
           name: displayName,
           raw_name: item.name,
           tamil_name: displayTamilName,
-          subtitle: item.description ? item.description.substring(0, 60) + '...' : '100% Authentic Botanical Care',
+          subtitle: item.description ? (item.description.length > 70 ? item.description.substring(0, 70) + '...' : item.description) : 'Pure authentic South Indian botanical formulation.',
           price: formatCurrency(priceNum),
           originalPrice: mrpNum > priceNum ? formatCurrency(mrpNum) : '',
           discount: mrpNum > priceNum ? `${Math.round(((mrpNum - priceNum) / mrpNum) * 100)}% OFF` : '',
@@ -90,22 +147,16 @@ export default function HandpickedDeals() {
           reviews: 1,
           badge: 'NEW',
           badgeColor: 'green',
-          image: resolveMediaUrl(item.image) || getProductFallbackImage(item.name, item.id) || 'https://vedanmart.com/images/Food/WILD%20HONEYJAR(NR).jpg',
+          image: (item.image ? resolveMediaUrl(item.image) : '') || (Array.isArray(item.extra_images) && item.extra_images[0] ? resolveMediaUrl(item.extra_images[0]) : ''),
           category_name: item.category_name || (item.category === 7 ? 'Health & Wellness' : 'Herbal Care'),
-          description: item.description,
+          description: item.description || 'Pure authentic South Indian botanical formulation for natural health and beauty.',
           pack_size: formatProductPackSize(item) || '50g',
           variations: []
         };
       });
     }
 
-    // 2. Fallback: dynamically pick products from catalog with is_new or top items without hardcoded strings
-    if (products && products.length > 0) {
-      const newItems = products.filter(p => p.is_new || p.badge === 'NEW');
-      if (newItems.length > 0) return newItems.slice(0, 8);
-      return products.slice(0, 8);
-    }
-
+    // Absolutely NO fallback to random catalog products: if CRM returns no new products, show empty list!
     return [];
   }, [newProductsList, products, getProductById]);
 
@@ -129,7 +180,7 @@ export default function HandpickedDeals() {
         </div>
       </div>
 
-      <div className="deals-grid reveal">
+      <div className="shop-grid deals-grid reveal">
         {dealProducts.map((product, idx) => (
           <ProductCard key={product.id} product={product} index={idx} />
         ))}

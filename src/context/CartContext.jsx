@@ -7,7 +7,6 @@ import { showAppToast } from '../components/GlobalToast';
 import { formatProductPackSize, formatVariationLabel, formatProductDisplayName, formatCurrency } from '../utils/productFormatters';
 import { getProductVariations, getDefaultVariation } from '../data/productVariationsData';
 import { COMPANY_FACTS } from '../data/companyFacts';
-import liveProductsBackup from '../data/liveProductsCache.json';
 
 const CartContext = createContext();
 
@@ -695,25 +694,45 @@ export function CartProvider({ children }) {
 
   const removeFromCart = async (productId) => {
     const user = getUser();
-    const itemToRemove = cartItems.find(item => item.id === productId);
+    const itemToRemove = cartItems.find(item => item.id === productId || item.cartItemId === productId);
+    const targetId = itemToRemove ? itemToRemove.id : productId;
+    const targetCartItemId = itemToRemove ? itemToRemove.cartItemId : null;
 
     // Optimistic UI Update - instantly remove it
-    setCartItems(prevItems => prevItems.filter(item => item.id !== productId));
+    setCartItems(prevItems => {
+      const updated = prevItems.filter(item => item.id !== targetId && item.cartItemId !== productId);
+      if (!user) {
+        try {
+          localStorage.setItem('dharani_cart', JSON.stringify(updated.filter(i => !i.isBundle)));
+        } catch (e) {}
+      }
+      return updated;
+    });
 
     if (itemToRemove?.isBundle) {
       try {
-        const stored = getStoredBundleCartItems().filter(i => i.id !== productId);
+        const stored = getStoredBundleCartItems().filter(i => i.id !== targetId && i.id !== productId);
         saveStoredBundleCartItems(stored);
       } catch (e) {}
       return; // Local bundle item removed
     }
 
-    if (user && itemToRemove && itemToRemove.cartItemId && !String(itemToRemove.cartItemId).startsWith('guest-') && !String(itemToRemove.cartItemId).startsWith('offline-') && !String(itemToRemove.cartItemId).startsWith('bundle-')) {
+    if (!user) {
+      return;
+    }
+
+    if (user && targetCartItemId && !String(targetCartItemId).startsWith('guest-') && !String(targetCartItemId).startsWith('offline-') && !String(targetCartItemId).startsWith('bundle-')) {
       try {
-        await fetch(`${API_BASE_URL}/cart/${itemToRemove.cartItemId}/`, {
+        let res = await fetch(`${API_BASE_URL}/carts/${targetCartItemId}/`, {
           method: 'DELETE',
           headers: { 'ngrok-skip-browser-warning': 'true' }
         });
+        if (!res.ok) {
+          await fetch(`${API_BASE_URL}/cart/${targetCartItemId}/`, {
+            method: 'DELETE',
+            headers: { 'ngrok-skip-browser-warning': 'true' }
+          });
+        }
         refreshCart();
       } catch (err) {
         console.error(err);
@@ -724,15 +743,26 @@ export function CartProvider({ children }) {
 
   const updateQuantity = async (productId, amount) => {
     const user = getUser();
-    const item = cartItems.find(item => item.id === productId);
+    const item = cartItems.find(item => item.id === productId || item.cartItemId === productId);
     if (!item) return;
 
-    const newQuantity = Math.max(1, item.quantity + amount);
+    const newQuantity = item.quantity + amount;
+    if (newQuantity <= 0) {
+      return removeFromCart(productId);
+    }
+
+    const targetId = item.id;
 
     // Optimistic UI Update - instantly update the number
-    setCartItems(prevItems =>
-      prevItems.map(i => i.id === productId ? { ...i, quantity: newQuantity } : i)
-    );
+    setCartItems(prevItems => {
+      const updated = prevItems.map(i => (i.id === targetId || i.cartItemId === productId) ? { ...i, quantity: newQuantity } : i);
+      if (!user) {
+        try {
+          localStorage.setItem('dharani_cart', JSON.stringify(updated.filter(i => !i.isBundle)));
+        } catch (e) {}
+      }
+      return updated;
+    });
 
     if (item.isBundle) {
       try {
@@ -768,13 +798,7 @@ export function CartProvider({ children }) {
   // Keep price & image enrichment fast: Map product id -> product
   const productById = useMemo(() => {
     const map = new Map();
-    // 1. Seed from local static product cache to guarantee instant product images
-    (liveProductsBackup || []).forEach((p) => {
-      if (p && p.id) {
-        map.set(String(p.id), p);
-      }
-    });
-    // 2. Overlay live products from ProductsContext if loaded
+    // Overlay live products from ProductsContext (API data)
     (products || []).forEach((p) => {
       if (p && p.id) {
         map.set(String(p.id), p);
@@ -796,8 +820,7 @@ export function CartProvider({ children }) {
     let liveProduct = null;
     if (candidateId) {
       liveProduct = productById.get(String(candidateId))
-        || (products && products.find(p => String(p.id) === String(candidateId)))
-        || (liveProductsBackup && liveProductsBackup.find(p => String(p.id) === String(candidateId)));
+        || (products && products.find(p => String(p.id) === String(candidateId)));
     }
 
     // If reliable product ID found in catalog, prefer its clean official image
@@ -825,13 +848,10 @@ export function CartProvider({ children }) {
     // Priority 5: Match by normalized product name if ID was missing or corrupted
     if (!liveProduct && (item?.name || item?.product_name)) {
       const cleanTarget = formatProductDisplayName(item.name || item.product_name).toLowerCase().trim();
-      liveProduct = (products && products.find(p => {
+      liveProduct = products && products.find(p => {
         const pClean = formatProductDisplayName(p.raw_name || p.name || '').toLowerCase().trim();
         return pClean === cleanTarget;
-      })) || (liveProductsBackup && liveProductsBackup.find(p => {
-        const pClean = formatProductDisplayName(p.name || '').toLowerCase().trim();
-        return pClean === cleanTarget;
-      }));
+      });
       if (liveProduct) {
         const prodImg = liveProduct.image 
           || liveProduct.product_image 

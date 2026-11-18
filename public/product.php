@@ -19,42 +19,19 @@ $defaultDesc = 'Discover 100% authentic South Indian herbal products, botanical 
 $product = null;
 
 if (!empty($productId)) {
-    // 1. Try to read from local liveProductsCache.json if present
-    $cacheFile = __DIR__ . '/src/data/liveProductsCache.json';
-    if (!file_exists($cacheFile)) {
-        $cacheFile = __DIR__ . '/liveProductsCache.json';
-    }
-    
-    if (file_exists($cacheFile)) {
-        $json = @file_get_contents($cacheFile);
-        if ($json) {
-            $data = json_decode($json, true);
-            if (is_array($data)) {
-                foreach ($data as $item) {
-                    if (isset($item['id']) && (string)$item['id'] === (string)$productId) {
-                        $product = $item;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    // 2. If not found in cache, fetch directly from backend API
-    if (!$product) {
-        $apiUrl = 'http://179.197.251.47:30080/herbal/products/' . $productId . '/';
-        $ctx = stream_context_create([
-            'http' => [
-                'timeout' => 3,
-                'header' => "User-Agent: DharaniBot/1.0\r\n"
-            ]
-        ]);
-        $res = @file_get_contents($apiUrl, false, $ctx);
-        if ($res) {
-            $p = json_decode($res, true);
-            if (is_array($p) && !empty($p['name'])) {
-                $product = $p;
-            }
+    // Fetch directly from live backend API
+    $apiUrl = 'http://179.197.251.47:30080/herbal/products/' . $productId . '/';
+    $ctx = stream_context_create([
+        'http' => [
+            'timeout' => 3,
+            'header' => "User-Agent: DharaniBot/1.0\r\n"
+        ]
+    ]);
+    $res = @file_get_contents($apiUrl, false, $ctx);
+    if ($res) {
+        $p = json_decode($res, true);
+        if (is_array($p) && !empty($p['name'])) {
+            $product = $p;
         }
     }
 }

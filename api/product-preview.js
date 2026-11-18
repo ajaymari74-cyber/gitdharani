@@ -1,57 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 
-// Load live products cache
-let cachedProducts = null;
-function getProducts() {
-  if (cachedProducts) return cachedProducts;
-  try {
-    const cachePath = path.join(process.cwd(), 'src/data/liveProductsCache.json');
-    if (fs.existsSync(cachePath)) {
-      const data = fs.readFileSync(cachePath, 'utf8');
-      cachedProducts = JSON.parse(data);
-      return cachedProducts;
-    }
-  } catch (err) {
-    console.error('Failed to load liveProductsCache.json:', err.message);
-  }
-  return [];
-}
-
-function cleanDisplayName(name) {
-  if (!name) return 'Herbal Product';
-  return name
-    .replace(/\bMulthani\s+Metti\b/gi, 'Multani Mitti')
-    .replace(/\bMulthani\b/gi, 'Multani')
-    .replace(/\bMetti\b/gi, 'Mitti')
-    .replace(/\b(Orange|Lemon)\s+Peal\b/gi, '$1 Peel')
-    .replace(/\s*\((?:GC|PO|JAR|NR|G|பா|பொ|ஜார்|பாக்கெட்)\)\s*/gi, ' ')
-    .replace(/\s*\(PO\d*\)?\s*/gi, ' ')
-    .replace(/\bJar\s*\(NR\)/gi, ' ')
-    .replace(/\bJAR\s*(?=\()/gi, ' ')
-    .replace(/\s+\(G\)$/i, '')
-    .replace(/\s+(?:Nr|NR)$/i, '')
-    .replace(/\s+பா$/i, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function cleanImageUrl(img) {
-  if (!img) return '';
-  let url = String(img).trim();
-  if (url.includes(',')) url = url.split(',')[0].trim();
-  url = url.replace(/([^:])\/\/+/g, '$1/');
-  try {
-    const urlObj = new URL(url);
-    urlObj.pathname = urlObj.pathname.split('/').map(part => {
-      return encodeURIComponent(decodeURIComponent(part));
-    }).join('/');
-    return urlObj.toString();
-  } catch {
-    return url.replace(/ /g, '%20').replace(/&/g, '%26');
-  }
-}
-
 export default async function handler(req, res) {
   const { id } = req.query;
   const cleanId = String(id || '').replace(/[^0-9]/g, '');
@@ -62,13 +11,9 @@ export default async function handler(req, res) {
   const defaultLogo = `${siteUrl}/logo.png`;
 
   let product = null;
-  const products = getProducts();
-  if (cleanId) {
-    product = products.find(p => String(p.id) === cleanId);
-  }
 
-  // Fallback to API if not in local cache
-  if (!product && cleanId) {
+  // Fetch directly from live backend API
+  if (cleanId) {
     try {
       const apiRes = await fetch(`http://179.197.251.47:30080/herbal/products/${cleanId}/`, {
         headers: { 'User-Agent': 'DharaniPreviewBot/1.0' },
@@ -79,7 +24,7 @@ export default async function handler(req, res) {
         if (data && data.name) product = data;
       }
     } catch (e) {
-      console.warn('API fallback error:', e.message);
+      console.warn('API fetch error:', e.message);
     }
   }
 

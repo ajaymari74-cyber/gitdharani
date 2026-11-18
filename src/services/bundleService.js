@@ -16,7 +16,7 @@ export const DEFAULT_BUNDLES = [
     slug: 'herbal-hair-care-combo',
     name: 'Herbal Hair Care Combo',
     tamil_name: 'மூலிகை கூந்தல் பராமரிப்பு காம்போ',
-    tagline: 'Complete 3-Step Ayurvedic Hair Care Routine',
+    tagline: 'Complete 3-Step Siddha & Herbal Hair Care Routine',
     description: 'An all-natural daily hair wellness ritual featuring Chemparuthi Shampoo, Hibiscus Herbal Hair Oil, and Traditional Hair Wash Powder to nourish roots, eliminate dandruff, and promote lustrous hair growth.',
     badge: 'BEST VALUE',
     badgeColor: 'emerald',
@@ -76,13 +76,7 @@ export function getStoredBundles() {
   } catch (err) {
     console.warn('Failed to parse stored bundles:', err);
   }
-  // Initialize with default configuration if none exists
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_BUNDLES));
-  } catch (e) {
-    console.warn('Could not save default bundles to localStorage:', e);
-  }
-  return DEFAULT_BUNDLES;
+  return [];
 }
 
 /**

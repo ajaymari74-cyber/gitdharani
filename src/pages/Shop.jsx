@@ -111,18 +111,18 @@ const CATEGORY_HERO_CONFIG = {
   },
   'health & wellness': {
     titleKey: 'healthTitle',
-    defaultTitle: 'Health & Wellness Care',
+    defaultTitle: 'Wellness',
     tagKey: 'healthTag',
-    defaultTag: 'Pure Siddha & Ayurvedic Care',
+    defaultTag: 'Pure Siddha & Herbal Care',
     subKey: 'healthDesc',
     defaultSub: 'Boost your daily vital energy with authentic herbal health powders and traditional wellness supplements.',
     bgImage: imgHealth
   },
   health: {
     titleKey: 'healthTitle',
-    defaultTitle: 'Health & Wellness Care',
+    defaultTitle: 'Wellness',
     tagKey: 'healthTag',
-    defaultTag: 'Pure Siddha & Ayurvedic Care',
+    defaultTag: 'Pure Siddha & Herbal Care',
     subKey: 'healthDesc',
     defaultSub: 'Boost your daily vital energy with authentic herbal health powders and traditional wellness supplements.',
     bgImage: imgHealth
@@ -158,7 +158,7 @@ const CATEGORY_HERO_CONFIG = {
     titleKey: 'ourCollection',
     defaultTitle: 'Explore Our Products',
     tagKey: 'herbalTag',
-    defaultTag: '100% Natural & Herbal',
+    defaultTag: 'A New Perspective on Everyday Herbal Care',
     subKey: 'handcraftedWellness',
     defaultSub: 'Handcrafted wellness products rooted in nature and tradition.',
     bgImage: imgAll
@@ -171,7 +171,7 @@ export { ProductCard };
 // ─── Category Tab ─────────────────────────────────────────────────────────────
 const CategoryTab = ({ cat, activeCategory, onClick }) => {
   const { language, t } = useLanguage();
-  const name = cat === 'All' ? t('allProducts') : (language === 'ta' ? getCategoryDisplayName(cat, 'ta') : cat);
+  const name = cat === 'All' ? t('allProducts') : getCategoryDisplayName(cat, language);
 
   return (
     <button
@@ -206,38 +206,11 @@ export default function Shop() {
   }, [visibleCount]);
 
   const scrollRestored = useRef(false);
-  const [apiCategories, setApiCategories] = useState(() => {
-    try {
-      // Prefer the shared localStorage cache written by CategoryStrip (avoids a duplicate fetch)
-      const lsCache = localStorage.getItem('dharani_categories_cache');
-      if (lsCache) {
-        const parsed = JSON.parse(lsCache);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-      // Fallback to the sessionStorage copy if present
-      const cached = sessionStorage.getItem('dharani_categories');
-      return cached ? JSON.parse(cached) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [apiCategories, setApiCategories] = useState([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedFilters, setSelectedFilters] = useState({});
 
   useEffect(() => {
-    // Skip the fetch entirely if we already have categories from the shared cache
-    // CategoryStrip (always rendered on the page) is responsible for keeping this cache fresh
-    const lsCache = localStorage.getItem('dharani_categories_cache');
-    if (lsCache) {
-      try {
-        const parsed = JSON.parse(lsCache);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setApiCategories(parsed);
-          return; // ← no network request needed
-        }
-      } catch { /* fall through to fetch */ }
-    }
-
     fetch(`${API_BASE_URL}/categories/`, {
       headers: {
         'ngrok-skip-browser-warning': 'true'
@@ -275,7 +248,7 @@ export default function Shop() {
       setTranslatedHeroCat(language === 'ta' ? 'எங்கள் தயாரிப்புகள்' : 'Explore Our Products');
       return;
     }
-    setTranslatedHeroCat(language === 'ta' ? getCategoryDisplayName(activeCategory, 'ta') : activeCategory);
+    setTranslatedHeroCat(getCategoryDisplayName(activeCategory, language));
   }, [language, activeCategory, activeBrand, activeSearch, t]);
 
   const categories = useMemo(() => {
@@ -402,7 +375,7 @@ export default function Shop() {
       },
       keywords: isCat
         ? [`herbal ${catName.toLowerCase()}`, `${catName.toLowerCase()} online`, 'dharani herbals', 'botanical products']
-        : ['herbal products', 'siddha wellness', 'dharani herbals catalog', 'ayurvedic products']
+        : ['herbal products', 'siddha wellness', 'dharani herbals catalog', 'siddha products']
     };
   }, [activeCategory, translatedHeroCat, catConfig]);
 
@@ -417,54 +390,65 @@ export default function Shop() {
         products={products}
       />
 
-      {/* ── Mobile Category Header (Rendered ONLY on mobile when a category is selected) ── */}
-      {activeCategory && activeCategory !== 'All' && (
-        <div className="shop-category-header mobile-only-cat-header">
-          <div className="shop-category-breadcrumbs">
-            <Link to="/">{t('home')}</Link>
-            <span className="crumb-sep">›</span>
-            <span className="crumb-current">{translatedHeroCat || catConfig.defaultTitle}</span>
+      {/* ── Category Hero Banner (Shown when a category is selected) ── */}
+      {activeCategory && activeCategory !== 'All' ? (
+        <div className="shop-category-banner">
+          <div className="shop-category-banner-container">
+            <div className="shop-category-banner-content">
+              <div className="shop-category-breadcrumbs">
+                <Link to="/">{t('home')}</Link>
+                <span className="crumb-sep">›</span>
+                <span className="crumb-current">{translatedHeroCat || catConfig.defaultTitle}</span>
+              </div>
+
+              <span className="shop-cat-banner-tag"><Leaf size={14} /> {heroTagText}</span>
+              <h1 className="shop-cat-banner-title">{translatedHeroCat || catConfig.defaultTitle}</h1>
+              <div className="shop-cat-banner-bullets">
+                {getCategoryBullets(currentCategoryKey, language)}
+              </div>
+              <p className="shop-cat-banner-count">
+                {filteredProducts.length} {filteredProducts.length === 1 ? (t('itemInCollection') || 'product') : (t('itemsInCollection') || 'products')}
+              </p>
+            </div>
+
+            {heroBgImg && (
+              <div className="shop-category-banner-visual">
+                <div className="shop-category-img-pedestal">
+                  <img src={heroBgImg} alt={translatedHeroCat || catConfig.defaultTitle} className="shop-category-featured-img" />
+                </div>
+              </div>
+            )}
           </div>
+        </div>
+      ) : (
+        /* ── All Products Hero Banner ── */
+        <div className="shop-hero">
+          <div className="shop-hero-container">
+            <div className="shop-hero-content">
+              <span className="shop-hero-tag"><Leaf size={14} /> {heroTagText}</span>
+              <h1 className="shop-hero-title">
+                <span>{heroTitleText}</span>
+              </h1>
+              <p className="shop-hero-sub">
+                {heroSubText}
+              </p>
 
-          <h1 className="shop-category-title">{translatedHeroCat || catConfig.defaultTitle}</h1>
+              <div className="shop-hero-actions">
+                <button className="shop-btn-primary" onClick={() => {
+                  const target = document.querySelector('.shop-body');
+                  if (target) target.scrollIntoView({ behavior: 'smooth' });
+                }}>{language === 'ta' ? 'இப்போதே வாங்குங்கள்' : 'Shop Now'} <ArrowRight size={16} /></button>
+              </div>
+            </div>
 
-          <div className="shop-category-bullets">
-            {getCategoryBullets(currentCategoryKey, language)}
+            <div className="shop-hero-right-visual">
+              <div className="shop-hero-visual-card">
+                <img src={heroBgImg} alt={heroTitleText} className="shop-hero-right-img" />
+              </div>
+            </div>
           </div>
-
-          <p className="shop-category-count">
-            {filteredProducts.length} {filteredProducts.length === 1 ? (t('itemInCollection') || 'product') : (t('itemsInCollection') || 'products')}
-          </p>
         </div>
       )}
-
-      {/* ── Hero Banner: Always shown on desktop with image; on mobile shown only when activeCategory === 'All' ── */}
-      <div className={`shop-hero ${activeCategory && activeCategory !== 'All' ? 'shop-hero-desktop-only shop-hero-category' : ''}`}>
-        <div className="shop-hero-container">
-          <div className="shop-hero-content">
-            <span className="shop-hero-tag"><Leaf size={14} /> {heroTagText}</span>
-            <h1 className="shop-hero-title">
-              <span>{heroTitleText}</span>
-            </h1>
-            <p className="shop-hero-sub">
-              {heroSubText}
-            </p>
-
-            <div className="shop-hero-actions">
-              <button className="shop-btn-primary" onClick={() => {
-                const target = document.querySelector('.shop-body');
-                if (target) target.scrollIntoView({ behavior: 'smooth' });
-              }}>{language === 'ta' ? 'இப்போதே வாங்குங்கள்' : 'Shop Now'} <ArrowRight size={16} /></button>
-            </div>
-          </div>
-
-          <div className="shop-hero-right-visual">
-            <div className="shop-hero-visual-card">
-              <img src={heroBgImg} alt={heroTitleText} className="shop-hero-right-img" />
-            </div>
-          </div>
-        </div>
-      </div>
 
       <div className="shop-body">
 

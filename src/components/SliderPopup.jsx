@@ -8,7 +8,7 @@ import { formatProductDisplayName } from '../utils/productFormatters';
 import { API_BASE_URL, SLIDERS_API_URL, resolveMediaUrl } from '../services/api';
 import sathuMaavuImg from '../assets/sathu_maavu_transparent.webp';
 import dharaniAvatar from '../assets/dharani_avatar.webp';
-import dharaniMascotAnnouncing from '../assets/dharani_avatar.webp';
+import dharaniMascotAnnouncing from '../assets/dharani_mascot_announcing_opt.png';
 import wildTurmericBannerImg from '../assets/wild_turmeric_offer_banner.jpg';
 import bodySoapImg from '../assets/body_soap_transparent.webp';
 import chemparuthiShampooImg from '../assets/chemparuthi_shampoo_transparent_v3.webp';
@@ -21,12 +21,23 @@ import './SliderPopup.css';
 // Curated default featured offers from live products so the widget is ALWAYS visible
 const DEFAULT_FEATURED_OFFERS = [
   {
-    id: 1243,
+    id: 1137,
+    productName: 'Pirandai Pickle Jar',
+    offerTitle: '⭐ Customer Favorite',
+    subtitle: 'Authentic Traditional Herbal Digestive Pickle',
+    image: pirandaiPickleImg,
+    link: '/product/1137',
+    originalPrice: 72,
+    finalPrice: 72,
+    discountPercentage: null
+  },
+  {
+    id: 1394,
     productName: 'Wild Turmeric',
     offerTitle: '⭐ Customer Favorite',
     subtitle: '100% Pure Kasturi Manjal for Natural Glow',
     image: wildTurmericBannerImg,
-    link: '/product/1243',
+    link: '/product/1394',
     originalPrice: 65,
     finalPrice: 65,
     discountPercentage: null
@@ -90,58 +101,58 @@ const DEFAULT_FEATURED_OFFERS = [
 
 // Helper to resolve the best high-res studio transparent image for any product
 const getProductStudioImage = (item, matchedProd) => {
-  const title = (item?.title || item?.offer || item?.text_overlay || '').toLowerCase();
-  const prodName = (matchedProd?.name || item?.productName || '').toLowerCase();
+  const title = (item?.title || item?.offer || item?.text_overlay || item?.productName || '').toLowerCase();
+  const prodName = (matchedProd?.name || item?.productName || item?.title || '').toLowerCase();
   const rawUrl = (item?.image || item?.image_url || item?.url || '').toLowerCase();
   const text = `${title} ${prodName} ${rawUrl}`;
   const idStr = String(item?.product_id || item?.id || matchedProd?.id || '');
 
-  // 1. Wild Turmeric -> full hero banner
-  if (idStr === '1243' || text.includes('turmeric') || text.includes('manjal')) {
+  // 1. Pickles & Thokku (Pirandai Pickle, Garlic Pickle, Thokku, etc.) -> ALWAYS show transparent pickle jar
+  if (idStr === '1137' || text.includes('pickle') || text.includes('pirandai') || text.includes('oorukai') || text.includes('thokku')) {
+    return pirandaiPickleImg;
+  }
+  // 2. Wild Turmeric -> full hero banner
+  if (idStr === '1394' || idStr === '1243' || text.includes('turmeric') || text.includes('manjal')) {
     return wildTurmericBannerImg;
   }
-  // 2. Soap (Mahil Rose Soap, Aloe Vera Soap, etc.) -> transparent studio cutout
-  if (idStr === '1193' || idStr === '1225' || text.includes('soap') || text.includes('mahil') || text.includes('rose')) {
+  // 3. Soap (Rose Soap, Aloe Vera Soap, Coconut Soap, etc.) -> transparent studio cutout
+  if (idStr === '1193' || idStr === '1225' || text.includes('soap')) {
     return bodySoapImg;
   }
-  // 3. Shampoo -> transparent shampoo bottle
+  // 4. Shampoo -> transparent shampoo bottle
   if (idStr === '1246' || idStr === '1255' || text.includes('shampoo') || text.includes('arappu') || (text.includes('chemparuthi') && !text.includes('oil'))) {
     return chemparuthiShampooImg;
   }
-  // 4. Face Pack & Gels
+  // 5. Face Pack & Gels
   if (idStr === '1011' || idStr === '1263' || text.includes('face pack') || text.includes('gel') || text.includes('facepack')) {
     return aloeFacePackImg;
   }
-  // 5. Powders
+  // 6. Powders
   if (idStr === '1012' || text.includes('powder') || text.includes('nalangu')) {
     return nalanguPowderImg;
   }
-  // 6. Oils
+  // 7. Oils
   if (idStr === '1013' || text.includes('oil')) {
     return poojaOilImg;
   }
-  // 7. Health Mix / Sathu Maavu
+  // 8. Health Mix / Sathu Maavu
   if (idStr === '1272' || text.includes('sathu') || text.includes('health mix') || text.includes('multigrain')) {
     return sathuMaavuImg;
-  }
-  // 8. Pickles
-  if (text.includes('pickle') || text.includes('pirandai')) {
-    return pirandaiPickleImg;
   }
 
   // Fallback to direct URL if available
   const origRawUrl = item?.image || item?.image_url || item?.url;
-  if (origRawUrl && origRawUrl.match(/\.(jpeg|jpg|png|webp|gif|svg)(\?.*)?$/i)) {
+  if (origRawUrl && typeof origRawUrl === 'string' && origRawUrl.match(/\.(jpeg|jpg|png|webp|gif|svg)(\?.*)?$/i)) {
     return resolveMediaUrl(origRawUrl);
   }
   if (matchedProd?.image) {
     return resolveMediaUrl(matchedProd.image);
   }
-  return bodySoapImg;
+  return origRawUrl ? resolveMediaUrl(origRawUrl) : pirandaiPickleImg;
 };
 
 export default function SliderPopup() {
-  const [offers, setOffers] = useState(DEFAULT_FEATURED_OFFERS);
+  const [offers, setOffers] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCardVisible, setIsCardVisible] = useState(false);
@@ -357,23 +368,6 @@ export default function SliderPopup() {
             });
         }
 
-        // 2. Add curated default / live catalog offers so the widget is NEVER empty
-        DEFAULT_FEATURED_OFFERS.forEach((def) => {
-          const already = activeOffers.some((o) => String(o.id) === String(def.id) || (o.link && o.link === def.link));
-          if (!already) {
-            const matchedCatalog = productsList.find((p) => String(p.id) === String(def.id));
-            let offerImg = getProductStudioImage(def, matchedCatalog) || def.image;
-            activeOffers.push({
-              ...def,
-              image: offerImg,
-              finalPrice: matchedCatalog?.price ? parseFloat(String(matchedCatalog.price).replace(/[^0-9.]/g, '')) : def.finalPrice,
-              originalPrice: matchedCatalog?.mrp && parseFloat(String(matchedCatalog.mrp)) > 0
-                ? parseFloat(String(matchedCatalog.mrp).replace(/[^0-9.]/g, ''))
-                : def.originalPrice
-            });
-          }
-        });
-
         // Ensure all offers use crisp transparent studio cutouts and banners
         const sanitizedOffers = activeOffers.map((offer) => {
           const studioImg = getProductStudioImage(offer, null);
@@ -397,15 +391,9 @@ export default function SliderPopup() {
     };
   }, [isTamil, contextProducts]);
 
-  // Entrance visibility on page load
+  // Preview card removed - widget starts strictly as minimized small girl icon
   useEffect(() => {
-    if (isExcludedRoute) return;
-
-    const timer = setTimeout(() => {
-      setIsCardVisible(true);
-    }, 500);
-
-    return () => clearTimeout(timer);
+    // No automatic popup
   }, [isExcludedRoute]);
 
   // Confetti sparks when modal opens
@@ -491,96 +479,27 @@ export default function SliderPopup() {
     if (dist < -45) prevSlide();
   };
 
-  if (isExcludedRoute) return null;
+  const currentOffer = offers[currentIndex] || offers[0];
 
-  const currentOffer = offers[currentIndex] || offers[0] || DEFAULT_FEATURED_OFFERS[0];
+  if (isExcludedRoute || !currentOffer) return null;
 
   return (
     <>
-      {/* 🌿 DHARANI MASCOT SPEECH BUBBLE & OFFER CARD (BOTTOM-LEFT CORNER) */}
-      {isCardVisible && !mascotDismissed && (
-        <div
-          className={`dharani-mascot-card-wrapper ${isOnProductPage ? 'on-product-page' : ''}`}
-          onClick={handleOpenOfferModal}
-          role="button"
-          tabIndex={0}
-          aria-label={isTamil ? 'சிறப்பு ஆஃபர்களை காண்க' : 'Special Offers are waiting for you!'}
-        >
-          <div className="dharani-mascot-container">
-            {/* Mascot Character on Left with Megaphone */}
-            <div className="dharani-mascot-avatar-box">
-              <img
-                src={dharaniMascotAnnouncing}
-                alt="Dharani Announcing Mascot"
-                className="dharani-mascot-img"
-              />
-            </div>
-
-            {/* Speech Bubble Card on Right matching user mockup ditto */}
-            <div className="dharani-mascot-speech-bubble">
-              <button
-                type="button"
-                className="dharani-mascot-bubble-close"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMascotDismissed(true);
-                }}
-                aria-label={isTamil ? 'மூடுக' : 'Dismiss'}
-                title={isTamil ? 'மூடுக' : 'Dismiss'}
-              >
-                <X size={14} strokeWidth={2.6} />
-              </button>
-
-              <div className="dharani-megaphone-card-header">
-                <span className="dharani-megaphone-title">
-                  {isTamil ? 'சிறப்பு ஆஃபர்கள்' : 'Special Offers'}
-                </span>
-                <span className="dharani-megaphone-subtitle">
-                  {isTamil ? 'உங்களுக்காக காத்திருக்கின்றன!' : 'are waiting for you!'}
-                </span>
-              </div>
-
-              <button
-                type="button"
-                className="dharani-mascot-cta-btn"
-                onClick={handleOpenOfferModal}
-              >
-                <span className="dharani-cta-gift-emoji">🎁</span>
-                <span>{isTamil ? 'ஆஃபரை காண்க →' : 'View Offer →'}</span>
-              </button>
-
-              <div className="dharani-mascot-footer">
-                <span className="footer-line"></span>
-                <Clock size={11} strokeWidth={2.4} />
-                <span>{isTamil ? 'குறிப்பிட்ட நேர சலுகை' : 'Limited Time Offer'}</span>
-                <span className="footer-line"></span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 🌿 MINIMIZED FLOATING MASCOT BUTTON (When speech bubble is dismissed) */}
-      {isCardVisible && mascotDismissed && (
-        <div
-          className={`dharani-mascot-minimized-trigger ${isOnProductPage ? 'on-product-page' : ''}`}
-          onClick={() => {
-            setMascotDismissed(false);
-            setIsModalOpen(true);
-            triggerSparks();
-          }}
-          role="button"
-          tabIndex={0}
-          title={isTamil ? 'சிறப்பு ஆஃபர்கள்' : 'Special Offers'}
-          aria-label={isTamil ? 'ஆஃபர்களை காண்க' : 'View special offers'}
-        >
-          <img src={dharaniMascotAnnouncing} alt="Dharani Mascot" className="minimized-avatar-img" />
-          <span className="minimized-offer-badge">
-            <Sparkles size={10} />
-            <span>OFFER</span>
-          </span>
-        </div>
-      )}
+      {/* 🌿 SMALL GIRL ICON FLOATING TRIGGER (BOTTOM-LEFT CORNER) */}
+      <div
+        className={`dharani-mascot-minimized-trigger ${isOnProductPage ? 'on-product-page' : ''}`}
+        onClick={handleOpenOfferModal}
+        role="button"
+        tabIndex={0}
+        title={isTamil ? 'சிறப்பு ஆஃபர்கள்' : 'Special Offers'}
+        aria-label={isTamil ? 'சிறப்பு ஆஃபர்கள்' : 'Special Offers'}
+      >
+        <img src={dharaniAvatar} alt="Dharani Avatar" className="minimized-avatar-img" />
+        <span className="minimized-offer-badge">
+          <Sparkles size={10} />
+          <span>OFFER</span>
+        </span>
+      </div>
 
       {/* 🌿 BOTANICAL OFFER POPUP MODAL (REVEALED ON CLICK) */}
       {isModalOpen && (

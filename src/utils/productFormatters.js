@@ -48,6 +48,9 @@ export function formatProductPackSize(product) {
 
   // 5. Check product name for explicit pack size first (e.g. "500ml", "300ml", "250g", "50g")
   const rawName = String(product.name || product.raw_name || '');
+  if (Number(product.id) === 1394 || rawName.toLowerCase().includes('wild turmeric') || rawName.toLowerCase().includes('kasthuri manjal')) {
+    return '50 g';
+  }
   const nameMatch = rawName.match(/(\d+(?:\.\d+)?)\s*(gm|gms|gram|grams|g|ml|mls|milliliter|millilitres|l|ltr|liters|litres|liter|kg|kgs)\b/i);
   if (nameMatch) {
     let num = parseFloat(nameMatch[1]);
@@ -296,6 +299,11 @@ export function formatProductDisplayName(rawName) {
     return '100 Gm Vadhasura Kudineer Churnam';
   }
 
+    // Standardize Ooty Varkey for all pages
+  if (/ooty\s*(?:varki|varkey|variki)/i.test(name)) {
+    return 'Ooty Varkey';
+  }
+
   // Disambiguate Chemparuthi Herbal Shampoo vs Chemparuthi Herbal Hair Oil
   if (/chemparuthi.*hair\s*oil.*shampoo/i.test(name)) {
     return 'Chemparuthi Herbal Shampoo';
@@ -467,6 +475,18 @@ export function getProductFallbackImage(name, id) {
   }
 
   // 2. Oils & Soups
+  if (numId === 1394 || numId === 1243 || n.includes('wild turmeric') || n.includes('kasthuri manjal') || n.includes('turmeric') || n.includes('manjal jar')) {
+    return 'https://vedanmart.com/images/Body%20Gallery/KASTHURI%20MANJAL.jpeg';
+  }
+  if (numId === 1469 || n.includes('red sandal')) {
+    return 'https://vedanmart.com/images/Skin/Facepack%20powder%20Jar.jpg';
+  }
+  if (numId === 1463 || n.includes('rose water')) {
+    return 'https://vedanmart.com/images/Skin/Facepack%20powder%20Jar.jpg';
+  }
+  if (numId === 1470 || n.includes('nilavaarai') || n.includes('nilavarai')) {
+    return 'https://vedanmart.com/images/herbal/NILAVARAI%20POWDER.jpg';
+  }
   if (n.includes('mudakkatran oil') || n.includes('mudakkathan oil') || n.includes('mutakkatran oil') || n.includes('balloon plant oil')) {
     return 'https://vedanmart.com/images/Body/BALLOON%20PLANT%20MUTAKKATRAN%20OIL.jpg';
   }
@@ -627,20 +647,20 @@ export function getProductFallbackImage(name, id) {
 
   // 8. Category-aware default fallbacks (so NO product ever defaults to logo.png or null)
   if (n.includes('food') || n.includes('sweet') || n.includes('snack') || n.includes('millet') || n.includes('rice') || n.includes('mix')) {
-    return 'https://vedanmart.com/images/Food/WILD%20HONEYJAR(NR).jpg';
+    return 'https://vedanmart.com/images/Food/PIRANDAI%20PICKLE.jpeg';
   }
   if (n.includes('hair') || n.includes('shampoo') || n.includes('oil')) {
     return 'https://vedanmart.com/images/hair/Hibiscus%20Oil.jpg';
   }
   if (n.includes('soap') || n.includes('face') || n.includes('skin') || n.includes('wash') || n.includes('bath')) {
-    return 'https://vedanmart.com/images/Body/ROSE%20SOAP.png';
+    return 'https://vedanmart.com/images/Skin/Facepack%20powder%20Jar.jpg';
   }
   if (n.includes('tea') || n.includes('coffee') || n.includes('kashayam') || n.includes('kudineer') || n.includes('beverage')) {
     return 'https://vedanmart.com/images/Beverages/hibiscus%20tea.jpeg';
   }
 
   // Universal authentic herbal fallback (verified high-res jar)
-  return 'https://vedanmart.com/images/Food/WILD%20HONEYJAR(NR).jpg';
+  return 'https://vedanmart.com/images/Baby/NALANGU%20POWDER%20JAR.jpg';
 }
 
 /**
