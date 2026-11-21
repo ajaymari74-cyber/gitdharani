@@ -68,7 +68,6 @@ import s3 from './assets/S3.webp';
 import s4 from './assets/S4.webp';
 import s5 from './assets/S5.webp';
 import s6 from './assets/S6.webp';
-import GlobalOrderPopup from './components/GlobalOrderPopup';
 import SliderPopup from './components/SliderPopup';
 // Using dynamic products now from ProductsContext
 
@@ -467,7 +466,6 @@ function AppContent() {
       <NetworkStatus />
       {!isAdminRoute && <CartDrawer />}
       {!isAdminRoute && !isInfoOrPolicyRoute && !isAdRoute && <FloatingSocials />}
-      {!isAdminRoute && !isInfoOrPolicyRoute && !isAdRoute && <GlobalOrderPopup />}
       {!isAdminRoute && !isInfoOrPolicyRoute && !isAdRoute && <SliderPopup />}
       {!isAdminRoute && isLoginModalOpen && (
         <Suspense fallback={null}>
