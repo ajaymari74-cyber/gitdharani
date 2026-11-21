@@ -196,14 +196,14 @@ export default function FloatingSocials() {
               <div className="launcher-icon-combo">
                 <div className="launcher-d-logo-badge">
                   <img
-                    src="/favicon.png"
+                    src="/images/dharani_logo_icon.png"
                     alt="Dharani Herbbals"
                     className="launcher-d-logo"
                     width="28"
                     height="28"
                     onError={(e) => {
                       e.currentTarget.onerror = null;
-                      e.currentTarget.src = '/videos/logo_transparent.webp';
+                      e.currentTarget.src = '/favicon.png';
                     }}
                   />
                 </div>

@@ -4608,6 +4608,26 @@
     width: 100%;
     overflow-x: auto;
     padding-bottom: 6px;
+    gap: 8px;
+  }
+
+  .pd-nike-thumb-btn {
+    padding: 0 !important;
+    overflow: hidden !important;
+    background: #ffffff !important;
+    border-radius: 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .pd-nike-thumb-btn img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    object-position: center !important;
+    mix-blend-mode: normal !important;
+    display: block !important;
   }
 
   .pd-pro-main-image-container.pd-nike-main-view {

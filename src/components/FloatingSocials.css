@@ -267,11 +267,53 @@
   }
 
   .floating-launcher-trigger {
-    width: 46px;
-    height: 46px;
-    min-width: 48px;
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 48px !important;
+    min-height: 48px !important;
+    border-radius: 50% !important;
     background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
-    min-height: 46px;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+  }
+
+  .launcher-icon-wrap,
+  .launcher-icon-combo {
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .launcher-d-logo-badge {
+    width: 34px !important;
+    height: 34px !important;
+    background: #ffffff !important;
+    border-radius: 50% !important;
+    padding: 3px !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16) !important;
+    overflow: hidden !important;
+  }
+
+  .launcher-d-logo {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important;
+    object-position: center !important;
+    display: block !important;
+    margin: 0 auto !important;
+  }
+
+  .launcher-sparkle-pip {
+    top: -2px !important;
+    right: -2px !important;
   }
 
   .floating-launcher-trigger svg {
