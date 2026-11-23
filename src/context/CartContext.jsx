@@ -202,8 +202,8 @@ export function CartProvider({ children }) {
 
         if (!res.ok) {
           if (res.status === 401) {
-            localStorage.removeItem('user');
-            openLoginModal();
+            // A cart read failing is not a logout. Keep the saved session and the current cart.
+            console.warn('Cart request returned 401; keeping the saved session.');
             return null;
           }
           if (res.status === 404) {
@@ -579,10 +579,11 @@ export function CartProvider({ children }) {
 
       if (!response.ok) {
         const text = await response.text(); let errData = {}; try { errData = text ? JSON.parse(text) : {}; } catch(e) { console.error("JSON parse error:", text); }
-        if (errData.message && errData.message.toLowerCase().includes('user')) {
-          localStorage.removeItem('user');
+        if (response.status === 401 || response.status === 403) {
+          // Ask the customer to sign in again, but keep the saved session data.
+          console.warn('Add to cart rejected:', response.status, errData);
           if (typeof openLoginModal === 'function') openLoginModal();
-          return; // Stop execution
+          return;
         }
       }
 

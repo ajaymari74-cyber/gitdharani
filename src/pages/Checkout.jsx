@@ -376,10 +376,12 @@ fetchUserAddresses(currentUserId)
     }
   })
           .catch(err => {
-            if (err.message === 'USER_NOT_FOUND') {
-              // The user session is invalid / backend DB was reset
-              localStorage.removeItem('user');
-              openLoginModal();
+           if (err.message === 'USER_NOT_FOUND') {
+              // Keep the session; only an explicit logout clears it. Let the customer enter an address.
+              console.warn('Saved addresses could not be loaded for this account.');
+              setCheckoutView('form');
+              setShowFullAddressForm(false);
+              setIsManualEntry(false);
               return;
             }
             console.error(err);
