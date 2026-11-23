@@ -58,6 +58,7 @@ const GoogleReviews = lazy(() => import('./components/GoogleReviews'));
 const HandpickedDeals = lazy(() => import('./components/HandpickedDeals'));
 const OurJourney = lazy(() => import('./components/OurJourney'));
 import Footer from './components/Footer';
+import OrderSuccess from './pages/OrderSuccess';
 const TrustBadges = lazy(() => import('./components/TrustBadges'));
 
 
@@ -489,6 +490,7 @@ function AppContent() {
               <Route path="/shop" element={<Shop />} />
               <Route path="/cart" element={<Cart />} />
               <Route path="/checkout" element={<Checkout />} />
+              <Route path="/order-success" element={<OrderSuccess />} />
               <Route path="/track/:orderId" element={<OrderTracking />} />
               <Route path="/product/:id" element={<ProductDetails />} />
               <Route path="/about" element={<About />} />

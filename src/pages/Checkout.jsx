@@ -238,14 +238,12 @@ export default function Checkout() {
     };
   }, [isStateDropdownOpen]);
 
+    // After a successful payment, move to the in-app success page (no full reload, so the session and state stay intact).
   useEffect(() => {
     if (showSuccessPopup) {
-      const timer = setTimeout(() => {
-        window.location.href = '/?order_placed=success';
-      }, 3000);
-      return () => clearTimeout(timer);
+      navigate('/order-success', { replace: true, state: { orderId: successOrderId } });
     }
-  }, [showSuccessPopup]);
+  }, [showSuccessPopup]); // eslint-disable-line react-hooks/exhaustive-deps
   
 const normalizeAddress = (addr) => ({ ...addr, id: addr.id ?? addr.address_id });
 
