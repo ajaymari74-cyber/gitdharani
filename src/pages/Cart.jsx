@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Trash2, ShoppingBag, ArrowLeft, ArrowRight, Minus, Plus, Truck, CheckCircle, Info } from 'lucide-react';
+import { Trash2, ShoppingBag, ArrowLeft, ArrowRight, Minus, Plus, Truck } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useLanguage } from '../context/LanguageContext';
 import SeoHead from '../components/SeoHead';
@@ -54,7 +54,7 @@ export default function Cart() {
       if (res.success && res.deliverable) {
         setDeliveryInfo(res);
         setPinError('');
-        try { localStorage.setItem('dharani_delivery_pincode', cleanPin); } catch(e) {}
+        try { localStorage.setItem('dharani_delivery_pincode', cleanPin); } catch (e) {}
       } else {
         setPinError(res.message || 'PIN code not serviceable');
         setDeliveryInfo(null);
@@ -127,59 +127,62 @@ export default function Cart() {
               </div>
               
               <ul className="cart-items-list">
-                {cartItems.map((item) => (
-                  <li key={item.id} className="cart-page-item">
-                    <div className="cart-item-product">
-                      <div className="cart-img-box">
-                        <img 
-                          src={item.image || '/logo.png'} 
-                          alt={item.name}
-                          loading="lazy"
-                          onError={(e) => {
-                            e.currentTarget.onerror = null;
-                            e.currentTarget.src = '/logo.png';
-                          }}
-                        />
+                {cartItems.map((item) => {
+                  const uniqueItemId = item.cartItemId || item.id;
+                  return (
+                    <li key={uniqueItemId} className="cart-page-item">
+                      <div className="cart-item-product">
+                        <div className="cart-img-box">
+                          <img 
+                            src={item.image || '/logo.png'} 
+                            alt={item.name}
+                            loading="lazy"
+                            onError={(e) => {
+                              e.currentTarget.onerror = null;
+                              e.currentTarget.src = '/logo.png';
+                            }}
+                          />
+                        </div>
+                        <div className="cart-item-info">
+                          <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, color: '#1e293b' }}>
+                            {language === 'ta' && item.tamil_name ? formatProductDisplayName(item.tamil_name) : formatProductDisplayName(item.name)}
+                          </h3>
+                          {item.variation_name ? (
+                            <p style={{ color: '#16a34a', fontSize: '0.85rem', margin: '4px 0 0', fontWeight: 500 }}>
+                              {formatVariationLabel(item.variation_name, item)}
+                            </p>
+                          ) : (item.pack_size || formatProductPackSize(item)) ? (
+                            <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '4px 0 0' }}>
+                              {item.pack_size || formatProductPackSize(item)}
+                            </p>
+                          ) : null}
+                          <p style={{ margin: '6px 0 0', fontWeight: 700, color: '#0f172a' }}>{formatCurrency(item.price)}</p>
+                        </div>
                       </div>
-                      <div className="cart-item-info">
-                        <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, color: '#1e293b' }}>
-                          {language === 'ta' && item.tamil_name ? formatProductDisplayName(item.tamil_name) : formatProductDisplayName(item.name)}
-                        </h3>
-                        {item.variation_name ? (
-                          <p style={{ color: '#16a34a', fontSize: '0.85rem', margin: '4px 0 0', fontWeight: 500 }}>
-                            {formatVariationLabel(item.variation_name, item)}
-                          </p>
-                        ) : (item.pack_size || formatProductPackSize(item)) ? (
-                          <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '4px 0 0' }}>
-                            {item.pack_size || formatProductPackSize(item)}
-                          </p>
-                        ) : null}
-                        <p style={{ margin: '6px 0 0', fontWeight: 700, color: '#0f172a' }}>{formatCurrency(item.price)}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="cart-item-quantity">
-                      <div className="cart-qty-spinner">
-                        <button className="btn-minus" onClick={() => updateQuantity(item.id, -1)} aria-label="Decrease quantity">
-                          <Minus size={16} />
+                      
+                      <div className="cart-item-quantity">
+                        <div className="cart-qty-spinner">
+                          <button className="btn-minus" onClick={() => updateQuantity(uniqueItemId, -1)} aria-label="Decrease quantity">
+                            <Minus size={16} />
+                          </button>
+                          <span>{item.quantity}</span>
+                          <button className="btn-plus" onClick={() => updateQuantity(uniqueItemId, 1)} aria-label="Increase quantity">
+                            <Plus size={16} />
+                          </button>
+                        </div>
+                        <button className="btn-cart-remove" onClick={() => removeFromCart(uniqueItemId)} type="button">
+                          <Trash2 size={14} /> Remove
                         </button>
-                        <span>{item.quantity}</span>
-                        <button className="btn-plus" onClick={() => updateQuantity(item.id, 1)} aria-label="Increase quantity">
-                          <Plus size={16} />
-                        </button>
                       </div>
-                      <button className="btn-cart-remove" onClick={() => removeFromCart(item.id || item.cartItemId)} type="button">
-                        <Trash2 size={14} /> Remove
-                      </button>
-                    </div>
 
-                    <div className="cart-item-total">
-                      <span className="cart-item-total-price">
-                        {formatCurrency(parseFloat(String(item.price).replace(/[^0-9.]/g, '')) * item.quantity, { showDecimals: true })}
-                      </span>
-                    </div>
-                  </li>
-                ))}
+                      <div className="cart-item-total">
+                        <span className="cart-item-total-price">
+                          {formatCurrency(parseFloat(String(item.price).replace(/[^0-9.]/g, '')) * item.quantity, { showDecimals: true })}
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
 

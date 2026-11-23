@@ -1,4 +1,4 @@
-import { createContext, useState, useContext, useEffect, useMemo } from 'react';
+import { createContext, useState, useContext, useEffect, useMemo, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { useProducts } from './ProductsContext';
 import { useAuthModal } from './AuthModalContext';
@@ -10,7 +10,20 @@ import { COMPANY_FACTS } from '../data/companyFacts';
 
 const CartContext = createContext();
 
+const GUEST_CART_KEY = 'dharani_cart';
+const OFFLINE_BACKUP_KEY = 'dharani_cart_offline_backup';
 const BUNDLE_CART_KEY = 'dharani_bundle_cart_items';
+
+const clearAllCartCaches = () => {
+  try {
+    localStorage.removeItem(GUEST_CART_KEY);
+    localStorage.removeItem(OFFLINE_BACKUP_KEY);
+    localStorage.removeItem(BUNDLE_CART_KEY);
+    sessionStorage.removeItem(GUEST_CART_KEY);
+    sessionStorage.removeItem(OFFLINE_BACKUP_KEY);
+    sessionStorage.removeItem(BUNDLE_CART_KEY);
+  } catch (e) {}
+};
 
 const getStoredBundleCartItems = () => {
   try {
@@ -27,7 +40,6 @@ const saveStoredBundleCartItems = (bundles) => {
   } catch (e) {}
 };
 
-
 export function isValidProductImage(url) {
   if (!url || typeof url !== 'string') return false;
   const trimmed = url.trim().toLowerCase();
@@ -43,10 +55,10 @@ export function CartProvider({ children }) {
       let initial = [];
       const stored = localStorage.getItem('user');
       if (stored) {
-        const offline = localStorage.getItem('dharani_cart_offline_backup');
+        const offline = localStorage.getItem(OFFLINE_BACKUP_KEY);
         if (offline) initial = JSON.parse(offline);
       } else {
-        const saved = localStorage.getItem('dharani_cart');
+        const saved = localStorage.getItem(GUEST_CART_KEY);
         if (saved) initial = JSON.parse(saved);
       }
       const storedBundles = getStoredBundleCartItems();
@@ -56,8 +68,11 @@ export function CartProvider({ children }) {
         return [...filtered, ...storedBundles];
       }
       return initial || [];
-    } catch { return []; }
+    } catch {
+      return [];
+    }
   });
+
   const [shippingCost, setShippingCost] = useState(null);
   const [deliveryState, setDeliveryState] = useState(() => {
     try {
@@ -100,6 +115,7 @@ export function CartProvider({ children }) {
       });
     return () => { isMounted = false; };
   }, []);
+
   const [taxAmount, setTaxAmount] = useState(0);
   const [cgst, setCgst] = useState(0);
   const [sgst, setSgst] = useState(0);
@@ -109,6 +125,7 @@ export function CartProvider({ children }) {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { products } = useProducts();
   const { openLoginModal } = useAuthModal();
+  const activeUserIdRef = useRef(null);
 
   const getUser = () => {
     try {
@@ -123,7 +140,9 @@ export function CartProvider({ children }) {
         return null;
       }
       return user;
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   };
 
   const refreshCart = async (params = {}) => {
@@ -133,39 +152,21 @@ export function CartProvider({ children }) {
         localStorage.setItem('dharani_delivery_state', params.state);
       } catch (e) {}
     }
+
     const user = getUser();
+
     if (user) {
-      // Sync any guest cart items stored in localStorage to server on login
+      // Strictly isolate logged-in account: discard any guest browser storage without syncing to account
       try {
-        const savedGuestCart = localStorage.getItem('dharani_cart');
-        if (savedGuestCart) {
-          const guestItems = JSON.parse(savedGuestCart);
-          if (Array.isArray(guestItems) && guestItems.length > 0) {
-            localStorage.removeItem('dharani_cart');
-            for (const item of guestItems) {
-              try {
-                await fetch(`${API_BASE_URL}/carts/`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'ngrok-skip-browser-warning': 'true'
-                  },
-                  body: JSON.stringify({
-                    user_id: user.id,
-                    product_id: item.id,
-                    quantity: item.quantity,
-                    ...(item.variation_id && { variation_id: item.variation_id })
-                  })
-                });
-              } catch (e) {
-                console.error("Failed to sync guest cart item to server:", e);
-              }
-            }
-          }
-        }
-      } catch (e) {
-        console.error("Error syncing guest cart:", e);
+        localStorage.removeItem(GUEST_CART_KEY);
+      } catch (e) {}
+
+      // If switched to a different user ID, clear stale backup/bundle cache from previous account
+      if (activeUserIdRef.current && String(activeUserIdRef.current) !== String(user.id)) {
+        clearAllCartCaches();
+        setCartItems([]);
       }
+      activeUserIdRef.current = user.id;
 
       let url = `${API_BASE_URL}/carts/?user_id=${user.id}`;
       if (params.address_id) {
@@ -174,6 +175,7 @@ export function CartProvider({ children }) {
       if (params.state) {
         url += `&state=${encodeURIComponent(params.state)}`;
       }
+
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 6000);
@@ -216,7 +218,14 @@ export function CartProvider({ children }) {
           return null;
         }
 
-        const text = await res.text(); let data = {}; try { data = text ? JSON.parse(text) : {}; } catch(e) { console.error("JSON parse error:", text); }
+        const text = await res.text();
+        let data = {};
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch (e) {
+          console.error("JSON parse error:", text);
+        }
+
         if (data) {
           let itemsArray = [];
           if (Array.isArray(data)) {
@@ -227,7 +236,12 @@ export function CartProvider({ children }) {
             itemsArray = data.data;
           }
 
-          const backendItems = itemsArray.map(item => ({
+          // Strictly keep only items belonging to this exact user.id
+          const userItems = itemsArray.filter(
+            item => !item.user_id || String(item.user_id) === String(user.id)
+          );
+
+          const backendItems = userItems.map(item => ({
             id: item.product_id || item.product || item.id,
             cartItemId: item.id,
             name: formatProductDisplayName(item.product_name || item.name),
@@ -241,6 +255,7 @@ export function CartProvider({ children }) {
 
           const storedBundles = getStoredBundleCartItems();
           setCartItems([...backendItems, ...storedBundles]);
+
           if (data.delivery_charge !== undefined) {
             setShippingCost(parseFloat(data.delivery_charge) || 0);
           } else if (data.shipping_charge !== undefined) {
@@ -250,6 +265,7 @@ export function CartProvider({ children }) {
           } else if (data.shipping !== undefined) {
             setShippingCost(parseFloat(data.shipping) || 0);
           }
+
           if (data.gst_total !== undefined) {
             setTaxAmount(0);
           } else if (data.tax !== undefined) {
@@ -258,13 +274,12 @@ export function CartProvider({ children }) {
             setTaxAmount(parseFloat(data.tax_amount) || 0);
           }
 
-          // New separate tax fields
+          // Separate tax fields
           if (data.cgst !== undefined) setCgst(0);
           if (data.sgst !== undefined) setSgst(0);
           if (data.igst !== undefined) setIgst(0);
           if (data.tax_total !== undefined) {
             setTaxTotal(parseFloat(data.tax_total) || 0);
-            // Fallback taxAmount if not set above
             setTaxAmount(prev => prev || parseFloat(data.tax_total) || 0);
           }
           setGrandTotal(null);
@@ -273,11 +288,14 @@ export function CartProvider({ children }) {
         console.error(err);
       }
     } else {
-      const savedCart = localStorage.getItem('dharani_cart');
+      activeUserIdRef.current = null;
+      const savedCart = localStorage.getItem(GUEST_CART_KEY);
       const base = savedCart ? JSON.parse(savedCart) : [];
       const storedBundles = getStoredBundleCartItems();
       const bundleKeys = new Set(storedBundles.map(b => b.id));
-      const filtered = (base || []).filter(i => !bundleKeys.has(i.id));
+      const filtered = (base || []).filter(
+        i => !bundleKeys.has(i.id) && (!i.cartItemId || String(i.cartItemId).startsWith('guest-'))
+      );
       setCartItems([...filtered, ...storedBundles]);
     }
   };
@@ -287,23 +305,51 @@ export function CartProvider({ children }) {
     refreshCart();
   }, []);
 
-  // Sync cart when user logs in or logs out
+  // Wipe all cart caches immediately on login/logout transitions
   useEffect(() => {
     const handleAuthChange = () => {
-      refreshCart();
+      const currentUser = getUser();
+      if (!currentUser) {
+        // Logged out: wipe all cart keys & caches so nothing leaks to guest mode
+        activeUserIdRef.current = null;
+        clearAllCartCaches();
+        setCartItems([]);
+        setShippingCost(null);
+        setTaxAmount(0);
+        setCgst(0);
+        setSgst(0);
+        setIgst(0);
+        setTaxTotal(0);
+        setGrandTotal(null);
+      } else {
+        // Logged in: clear guest storage so guest items never reflect into logged-in account
+        clearAllCartCaches();
+        setCartItems([]);
+        refreshCart();
+      }
     };
     window.addEventListener('user-login-status-changed', handleAuthChange);
     return () => window.removeEventListener('user-login-status-changed', handleAuthChange);
   }, []);
 
+  // Keep guest storage and logged-in offline backup strictly separated
   useEffect(() => {
     try {
-      if (!getUser()) {
-        localStorage.setItem('dharani_cart', JSON.stringify(cartItems));
+      const user = getUser();
+      if (!user) {
+        localStorage.removeItem(OFFLINE_BACKUP_KEY);
+        const guestOnly = cartItems.filter(
+          i => !i.isBundle && (!i.cartItemId || String(i.cartItemId).startsWith('guest-'))
+        );
+        localStorage.setItem(GUEST_CART_KEY, JSON.stringify(guestOnly));
       } else {
-        localStorage.setItem('dharani_cart_offline_backup', JSON.stringify(cartItems));
+        localStorage.removeItem(GUEST_CART_KEY);
+        const userOnly = cartItems.filter(
+          i => !i.cartItemId || !String(i.cartItemId).startsWith('guest-')
+        );
+        localStorage.setItem(OFFLINE_BACKUP_KEY, JSON.stringify(userOnly));
       }
-    } catch(e) {}
+    } catch (e) {}
   }, [cartItems]);
 
   const triggerCartCrackers = () => {
@@ -491,11 +537,10 @@ export function CartProvider({ children }) {
 
     let formattedPrice = formatCurrency(itemPrice);
 
-    // ── GUEST USER: ADD TO LOCAL STATE WITHOUT REQUIRING LOGIN ──
+    // ── GUEST USER: ADD TO LOCAL STATE ONLY (NEVER SYNCED TO LOGIN ACCOUNT) ──
     if (!user) {
       if (existingItem) {
         if (String(existingItem.variation_id || '') === String(effectiveVariationId || '')) {
-          // Same variation -> update quantity
           updateQuantity(product.id, quantity);
           if (!silent) {
             showAppToast('Added to cart successfully');
@@ -503,7 +548,6 @@ export function CartProvider({ children }) {
           }
           return;
         }
-        // Different variation -> will replace existing item below
       }
 
       const rawGuestImg = product.image || product.product_image || (Array.isArray(product.images) && product.images[0]?.image) || '';
@@ -541,7 +585,6 @@ export function CartProvider({ children }) {
     // ── LOGGED-IN USER: SYNC WITH SERVER ──
     if (existingItem) {
       if (String(existingItem.variation_id || '') === String(effectiveVariationId || '')) {
-        // Same variation -> just add quantity
         updateQuantity(product.id, quantity);
         if (!silent) {
           showAppToast('Added to cart successfully');
@@ -549,15 +592,16 @@ export function CartProvider({ children }) {
         }
         return;
       } else {
-        // Different variation -> Backend doesn't support multiple variations of the same product.
-        // Delete the old one before adding the new one.
+        // Different variation -> Delete old item before adding the new one
         if (existingItem.cartItemId && !String(existingItem.cartItemId).startsWith('guest-') && !String(existingItem.cartItemId).startsWith('offline-')) {
           try {
             await fetch(`${API_BASE_URL}/carts/${existingItem.cartItemId}/`, {
               method: 'DELETE',
               headers: { 'ngrok-skip-browser-warning': 'true' }
             });
-          } catch (e) { console.error(e); }
+          } catch (e) {
+            console.error(e);
+          }
         }
       }
     }
@@ -578,10 +622,21 @@ export function CartProvider({ children }) {
       });
 
       if (!response.ok) {
-        const text = await response.text(); let errData = {}; try { errData = text ? JSON.parse(text) : {}; } catch(e) { console.error("JSON parse error:", text); }
+        const text = await response.text();
+        let errData = {};
+        try {
+          errData = text ? JSON.parse(text) : {};
+        } catch (e) {
+          console.error("JSON parse error:", text);
+        }
         if (response.status === 401 || response.status === 403) {
-          // Ask the customer to sign in again, but keep the saved session data.
           console.warn('Add to cart rejected:', response.status, errData);
+          if (typeof openLoginModal === 'function') openLoginModal();
+          return;
+        }
+        if (errData.message && errData.message.toLowerCase().includes('user')) {
+          localStorage.removeItem('user');
+          clearAllCartCaches();
           if (typeof openLoginModal === 'function') openLoginModal();
           return;
         }
@@ -612,7 +667,6 @@ export function CartProvider({ children }) {
       showAppToast('Added to cart successfully');
       if (wasEmpty) {
         setIsCartOpen(true);
-        // Wait for cart drawer to slide in, then burst patasu right on the drawer
         setTimeout(() => {
           triggerDrawerPatasu();
         }, 350);
@@ -628,8 +682,6 @@ export function CartProvider({ children }) {
 
     const priceNum = typeof bundle.offerPrice === 'number' ? bundle.offerPrice : parseFloat(bundle.offerPrice) || 0;
     const regularNum = typeof bundle.regularTotal === 'number' ? bundle.regularTotal : parseFloat(bundle.regularPrice) || priceNum;
-
-    // Compile primary/composite image from bundle items if bundle image is not set
     const bundleImage = bundle.image || (bundle.items && bundle.items[0]?.image) || '/logo.png';
 
     const bundleCartItem = {
@@ -655,7 +707,6 @@ export function CartProvider({ children }) {
       }))
     };
 
-    // Save directly to persistent bundle store
     try {
       const stored = getStoredBundleCartItems();
       const existingIdx = stored.findIndex(i => i.id === bundleKey);
@@ -699,12 +750,11 @@ export function CartProvider({ children }) {
     const targetId = itemToRemove ? itemToRemove.id : productId;
     const targetCartItemId = itemToRemove ? itemToRemove.cartItemId : null;
 
-    // Optimistic UI Update - instantly remove it
     setCartItems(prevItems => {
       const updated = prevItems.filter(item => item.id !== targetId && item.cartItemId !== productId);
       if (!user) {
         try {
-          localStorage.setItem('dharani_cart', JSON.stringify(updated.filter(i => !i.isBundle)));
+          localStorage.setItem(GUEST_CART_KEY, JSON.stringify(updated.filter(i => !i.isBundle)));
         } catch (e) {}
       }
       return updated;
@@ -715,7 +765,7 @@ export function CartProvider({ children }) {
         const stored = getStoredBundleCartItems().filter(i => i.id !== targetId && i.id !== productId);
         saveStoredBundleCartItems(stored);
       } catch (e) {}
-      return; // Local bundle item removed
+      return;
     }
 
     if (!user) {
@@ -737,7 +787,7 @@ export function CartProvider({ children }) {
         refreshCart();
       } catch (err) {
         console.error(err);
-        refreshCart(); // Revert on failure
+        refreshCart();
       }
     }
   };
@@ -754,12 +804,11 @@ export function CartProvider({ children }) {
 
     const targetId = item.id;
 
-    // Optimistic UI Update - instantly update the number
     setCartItems(prevItems => {
       const updated = prevItems.map(i => (i.id === targetId || i.cartItemId === productId) ? { ...i, quantity: newQuantity } : i);
       if (!user) {
         try {
-          localStorage.setItem('dharani_cart', JSON.stringify(updated.filter(i => !i.isBundle)));
+          localStorage.setItem(GUEST_CART_KEY, JSON.stringify(updated.filter(i => !i.isBundle)));
         } catch (e) {}
       }
       return updated;
@@ -770,12 +819,12 @@ export function CartProvider({ children }) {
         const stored = getStoredBundleCartItems().map(i => i.id === productId ? { ...i, quantity: newQuantity } : i);
         saveStoredBundleCartItems(stored);
       } catch (e) {}
-      return; // Local bundle item quantity updated
+      return;
     }
 
     if (user && item.cartItemId && !String(item.cartItemId).startsWith('guest-') && !String(item.cartItemId).startsWith('offline-') && !String(item.cartItemId).startsWith('bundle-')) {
       try {
-        await fetch(`${API_BASE_URL}/cart/${item.cartItemId}/`, {
+        let res = await fetch(`${API_BASE_URL}/carts/${item.cartItemId}/`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -783,10 +832,20 @@ export function CartProvider({ children }) {
           },
           body: JSON.stringify({ quantity: newQuantity })
         });
-        refreshCart(); // Background sync
+        if (!res.ok) {
+          await fetch(`${API_BASE_URL}/cart/${item.cartItemId}/`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'ngrok-skip-browser-warning': 'true'
+            },
+            body: JSON.stringify({ quantity: newQuantity })
+          });
+        }
+        refreshCart();
       } catch (err) {
         console.error(err);
-        refreshCart(); // Revert on failure
+        refreshCart();
       }
     }
   };
@@ -796,10 +855,8 @@ export function CartProvider({ children }) {
 
   const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
 
-  // Keep price & image enrichment fast: Map product id -> product
   const productById = useMemo(() => {
     const map = new Map();
-    // Overlay live products from ProductsContext (API data)
     (products || []).forEach((p) => {
       if (p && p.id) {
         map.set(String(p.id), p);
@@ -808,13 +865,11 @@ export function CartProvider({ children }) {
     return map;
   }, [products]);
 
-  // Robust product image resolver following strict user priorities
   const resolveCartItemImage = (item) => {
     if (item?.isBundle) {
       return isValidProductImage(item?.image) ? resolveMediaUrl(item.image) : '/logo.png';
     }
 
-    // Match product using reliable product ID (from product_id, product FK, or candidate id)
     const candidateId = item?.product_id 
       || (typeof item?.product === 'number' || (typeof item?.product === 'string' && /^\d+$/.test(item.product)) ? item.product : (item?.product?.id || item?.id));
 
@@ -824,7 +879,6 @@ export function CartProvider({ children }) {
         || (products && products.find(p => String(p.id) === String(candidateId)));
     }
 
-    // If reliable product ID found in catalog, prefer its clean official image
     if (liveProduct) {
       const prodImg = liveProduct.image 
         || liveProduct.product_image 
@@ -836,17 +890,14 @@ export function CartProvider({ children }) {
       }
     }
 
-    // Priority 1: Cart item's valid image URL (ignore fallback logo.png)
     if (isValidProductImage(item?.image)) {
       return resolveMediaUrl(item.image);
     }
 
-    // Priority 2: Cart item's product_image (ignore fallback logo.png)
     if (isValidProductImage(item?.product_image)) {
       return resolveMediaUrl(item.product_image);
     }
 
-    // Priority 5: Match by normalized product name if ID was missing or corrupted
     if (!liveProduct && (item?.name || item?.product_name)) {
       const cleanTarget = formatProductDisplayName(item.name || item.product_name).toLowerCase().trim();
       liveProduct = products && products.find(p => {
@@ -902,7 +953,6 @@ export function CartProvider({ children }) {
     });
   }, [cartItems, productById, products]);
 
-  // Compute calculated taxes locally based on enriched cart items
   const localTaxes = useMemo(() => {
     let totalTax = 0;
     enrichedCartItems.forEach(item => {
@@ -912,7 +962,6 @@ export function CartProvider({ children }) {
       totalTax += 0;
     });
 
-    // Split tax into CGST and SGST equally (assuming local state)
     return {
       taxTotal: totalTax,
       cgst: totalTax / 2,
@@ -923,7 +972,6 @@ export function CartProvider({ children }) {
 
   const cartTotal = useMemo(() => {
     return enrichedCartItems.reduce((total, item) => {
-      // Parse price strings like "₹249.00" to floats
       const priceStr = typeof item.price === 'string' ? item.price.replace(/[^\d.]/g, '') : item.price;
       const price = parseFloat(priceStr) || 0;
       return total + price * item.quantity;
@@ -933,7 +981,6 @@ export function CartProvider({ children }) {
   const effectiveShippingCost = useMemo(() => {
     if (cartTotal <= 0) return 0;
 
-    // Look up rate for selected delivery state from existing configured rates
     const activeState = (deliveryState || '').trim().toLowerCase();
     if (activeState && stateShippingRates.length > 0) {
       const stateRate = stateShippingRates.find(r =>
@@ -945,16 +992,13 @@ export function CartProvider({ children }) {
         const freeAbove = parseFloat(stateRate.free_above) || 0;
         const shippingAmount = parseFloat(stateRate.shipping_amount) || 0;
 
-        // If order subtotal is equal to or greater than Free Above, shipping must be ₹0
         if (cartTotal >= freeAbove) {
           return 0;
         }
-        // If order meets minimum order amount but is below Free Above, charge configured Shipping amount
         return shippingAmount;
       }
     }
 
-    // Fallback if rates not yet loaded or state not found
     const threshold = COMPANY_FACTS?.shipping?.freeShippingThreshold || 750;
     const standardFee = COMPANY_FACTS?.shipping?.standardShippingFee || 50;
 
@@ -964,7 +1008,6 @@ export function CartProvider({ children }) {
     }
     return standardFee;
   }, [cartTotal, deliveryState, stateShippingRates, shippingCost]);
-
 
   const contextValue = useMemo(() => ({
     cartItems: enrichedCartItems,
