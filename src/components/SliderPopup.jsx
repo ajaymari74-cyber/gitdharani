@@ -1,31 +1,31 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import confetti from 'canvas-confetti';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { X, ChevronLeft, ChevronRight, ShoppingBag, Clock, Sparkles, Gift } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, ShoppingBag, Sparkles } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useProducts } from '../context/ProductsContext';
 import { formatProductDisplayName } from '../utils/productFormatters';
-import { API_BASE_URL, SLIDERS_API_URL, resolveMediaUrl } from '../services/api';
+import { resolveMediaUrl } from '../services/api';
 import sathuMaavuImg from '../assets/sathu_maavu_transparent.webp';
 import dharaniAvatar from '../assets/dharani_avatar.webp';
-import dharaniMascotAnnouncing from '../assets/dharani_mascot_announcing_opt.png';
 import wildTurmericBannerImg from '../assets/wild_turmeric_offer_banner.jpg';
 import bodySoapImg from '../assets/body_soap_transparent.webp';
 import chemparuthiShampooImg from '../assets/chemparuthi_shampoo_transparent_v3.webp';
 import aloeFacePackImg from '../assets/aloe_vera_face_pack_transparent.webp';
-import nalanguPowderImg from '../assets/nalangu_powder_transparent_v2.webp';
-import poojaOilImg from '../assets/pooja_oil_transparent_v2.webp';
 import pirandaiPickleImg from '../assets/pirandai_pickle_transparent_v2.webp';
 import './SliderPopup.css';
 
-// Curated default featured offers from live products so the widget is ALWAYS visible
+const CRM_SLIDERS_ENDPOINT = 'http://179.197.251.47:30080/herbal/sliders/';
+const AUTO_SLIDE_MS = 3500;
+
+// Shown when the CRM API fails or returns no active sliders
 const DEFAULT_FEATURED_OFFERS = [
   {
     id: 1137,
     productName: 'Pirandai Pickle Jar',
-    offerTitle: '⭐ Customer Favorite',
     subtitle: 'Authentic Traditional Herbal Digestive Pickle',
     image: pirandaiPickleImg,
+    fallbackImage: pirandaiPickleImg,
     link: '/product/1137',
     originalPrice: 72,
     finalPrice: 72,
@@ -34,9 +34,9 @@ const DEFAULT_FEATURED_OFFERS = [
   {
     id: 1394,
     productName: 'Wild Turmeric',
-    offerTitle: '⭐ Customer Favorite',
     subtitle: '100% Pure Kasturi Manjal for Natural Glow',
     image: wildTurmericBannerImg,
+    fallbackImage: wildTurmericBannerImg,
     link: '/product/1394',
     originalPrice: 65,
     finalPrice: 65,
@@ -45,122 +45,119 @@ const DEFAULT_FEATURED_OFFERS = [
   {
     id: 1193,
     productName: 'Rose Soap',
-    offerTitle: '⭐ Customer Favorite',
     subtitle: 'Botanical Herbal Remedy with Natural Rose',
     image: bodySoapImg,
+    fallbackImage: bodySoapImg,
     link: '/product/1193',
     originalPrice: 60,
     finalPrice: 60,
     discountPercentage: null
   },
   {
-    id: 1011,
-    productName: 'Facepack Powder',
-    offerTitle: '⭐ Customer Favorite',
-    subtitle: 'Herbal Radiance & Skin Nourishment',
-    image: aloeFacePackImg,
-    link: '/product/1011',
-    originalPrice: 70,
-    finalPrice: 70,
-    discountPercentage: null
-  },
-  {
-    id: 1263,
-    productName: 'Cucumber Gel',
-    offerTitle: '⭐ Customer Favorite',
-    subtitle: 'Pure Herbal Hydration & Soothing Care',
-    image: aloeFacePackImg,
-    link: '/product/1263',
-    originalPrice: 85,
-    finalPrice: 85,
-    discountPercentage: null
-  },
-  {
     id: 1246,
     productName: 'Arappu Shampoo',
-    offerTitle: '⭐ Customer Favorite',
     subtitle: 'Traditional Natural Herbal Hair Cleanser',
     image: chemparuthiShampooImg,
+    fallbackImage: chemparuthiShampooImg,
     link: '/product/1246',
     originalPrice: 75,
     finalPrice: 75,
     discountPercentage: null
   },
   {
-    id: 1272,
-    productName: 'Sprouted Multigrain Health Mix',
-    offerTitle: '⭐ Customer Favorite',
-    subtitle: 'Traditional Herbal Health Mix for Whole Family',
-    image: sathuMaavuImg,
-    link: '/product/1272',
-    originalPrice: 195,
-    finalPrice: 195,
+    id: 1011,
+    productName: 'Facepack Powder',
+    subtitle: 'Herbal Radiance & Skin Nourishment',
+    image: aloeFacePackImg,
+    fallbackImage: aloeFacePackImg,
+    link: '/product/1011',
+    originalPrice: 70,
+    finalPrice: 70,
     discountPercentage: null
   }
 ];
 
-// Helper to resolve the best high-res studio transparent image for any product
-const getProductStudioImage = (item, matchedProd) => {
-  const title = (item?.title || item?.offer || item?.text_overlay || item?.productName || '').toLowerCase();
-  const prodName = (matchedProd?.name || item?.productName || item?.title || '').toLowerCase();
-  const rawUrl = (item?.image || item?.image_url || item?.url || '').toLowerCase();
-  const text = `${title} ${prodName} ${rawUrl}`;
-  const idStr = String(item?.product_id || item?.id || matchedProd?.id || '');
+const parsePrice = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  const n = parseFloat(String(value).replace(/[^0-9.]/g, ''));
+  return Number.isFinite(n) ? n : null;
+};
 
-  // 1. Pickles & Thokku (Pirandai Pickle, Garlic Pickle, Thokku, etc.) -> ALWAYS show transparent pickle jar
-  if (idStr === '1137' || text.includes('pickle') || text.includes('pirandai') || text.includes('oorukai') || text.includes('thokku')) {
-    return pirandaiPickleImg;
-  }
-  // 2. Wild Turmeric -> full hero banner
-  if (idStr === '1394' || idStr === '1243' || text.includes('turmeric') || text.includes('manjal')) {
-    return wildTurmericBannerImg;
-  }
-  // 3. Soap (Rose Soap, Aloe Vera Soap, Coconut Soap, etc.) -> transparent studio cutout
-  if (idStr === '1193' || idStr === '1225' || text.includes('soap')) {
-    return bodySoapImg;
-  }
-  // 4. Shampoo -> transparent shampoo bottle
-  if (idStr === '1246' || idStr === '1255' || text.includes('shampoo') || text.includes('arappu') || (text.includes('chemparuthi') && !text.includes('oil'))) {
-    return chemparuthiShampooImg;
-  }
-  // 5. Face Pack & Gels
-  if (idStr === '1011' || idStr === '1263' || text.includes('face pack') || text.includes('gel') || text.includes('facepack')) {
-    return aloeFacePackImg;
-  }
-  // 6. Powders
-  if (idStr === '1012' || text.includes('powder') || text.includes('nalangu')) {
-    return nalanguPowderImg;
-  }
-  // 7. Oils
-  if (idStr === '1013' || text.includes('oil')) {
-    return poojaOilImg;
-  }
-  // 8. Health Mix / Sathu Maavu
-  if (idStr === '1272' || text.includes('sathu') || text.includes('health mix') || text.includes('multigrain')) {
-    return sathuMaavuImg;
+const getFallbackProductImage = (item, matchedProd) => {
+  const text = `${item?.title || ''} ${item?.offer || ''} ${matchedProd?.name || ''}`.toLowerCase();
+  if (text.includes('pickle') || text.includes('pirandai') || text.includes('thokku')) return pirandaiPickleImg;
+  if (text.includes('turmeric') || text.includes('manjal')) return wildTurmericBannerImg;
+  if (text.includes('soap')) return bodySoapImg;
+  if (text.includes('shampoo') || text.includes('arappu')) return chemparuthiShampooImg;
+  if (text.includes('face pack') || text.includes('facepack') || text.includes('gel')) return aloeFacePackImg;
+  if (matchedProd?.image) return resolveMediaUrl(matchedProd.image);
+  return sathuMaavuImg;
+};
+
+const findMatchedProduct = (item, productsList) => {
+  if (!productsList.length) return null;
+
+  const productId = Number(item.product_id);
+  if (productId) {
+    const byId = productsList.find((p) => Number(p.id) === productId);
+    if (byId) return byId;
   }
 
-  // Fallback to direct URL if available
-  const origRawUrl = item?.image || item?.image_url || item?.url;
-  if (origRawUrl && typeof origRawUrl === 'string' && origRawUrl.match(/\.(jpeg|jpg|png|webp|gif|svg)(\?.*)?$/i)) {
-    return resolveMediaUrl(origRawUrl);
+  const title = (item.title || item.offer || item.text_overlay || '').trim().toLowerCase();
+  if (!title) return null;
+
+  const words = title
+    .replace(/\b(mega offer|offer|deal|special|pack|combo|limited|buy|get|ramcare|herbal|herbbal)\b/gi, '')
+    .trim()
+    .split(/\s+/)
+    .filter((w) => w.length >= 3);
+
+  let bestMatch = null;
+  let bestScore = 0;
+  for (const p of productsList) {
+    const pName = (p.name || '').toLowerCase();
+    let score = 0;
+    if (pName === title) score += 100;
+    else if (pName.includes(title) || title.includes(pName)) score += 50;
+    for (const w of words) {
+      if (pName.includes(w)) score += 10;
+    }
+    if (score >= 10 && score > bestScore) {
+      bestScore = score;
+      bestMatch = p;
+    }
   }
-  if (matchedProd?.image) {
-    return resolveMediaUrl(matchedProd.image);
-  }
-  return origRawUrl ? resolveMediaUrl(origRawUrl) : pirandaiPickleImg;
+  return bestMatch;
+};
+
+const buildOffer = (item, index, productsList) => {
+  const matchedProd = findMatchedProduct(item, productsList);
+  const productId = item.product_id || matchedProd?.id;
+
+  const apiImage = item.image || item.image_url || item.url;
+  const image = apiImage ? resolveMediaUrl(apiImage) : getFallbackProductImage(item, matchedProd);
+
+  const finalPrice = parsePrice(matchedProd?.price);
+  const originalPrice = parsePrice(matchedProd?.mrp) || finalPrice;
+
+  return {
+    id: item.id || `crm-${index}`,
+    productName: matchedProd?.name || item.title || 'Herbal Wellness Product',
+    subtitle: (item.subtitle && !item.subtitle.startsWith('http') && item.subtitle) || matchedProd?.category_name || 'Botanical Herbal Remedy',
+    image,
+    fallbackImage: getFallbackProductImage(item, matchedProd),
+    link: item.link || (productId ? `/product/${productId}` : '/shop'),
+    originalPrice,
+    finalPrice,
+    discountPercentage: parseInt(item.discount_percentage || item.discount, 10) || null
+  };
 };
 
 export default function SliderPopup() {
-  const [offers, setOffers] = useState([]);
+  const [offers, setOffers] = useState(DEFAULT_FEATURED_OFFERS);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isCardVisible, setIsCardVisible] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const [mascotDismissed, setMascotDismissed] = useState(false);
-
-  // Live Deal Countdown Timer State
-  const [timeLeft, setTimeLeft] = useState({ hours: '05', minutes: '45', seconds: '30' });
 
   const { isTamil } = useLanguage();
   const { products: contextProducts } = useProducts();
@@ -169,7 +166,6 @@ export default function SliderPopup() {
   const touchStartRef = useRef(null);
   const touchEndRef = useRef(null);
 
-  // Hidden on checkout, login, cart, order-success, admin
   const isExcludedRoute =
     location.pathname.startsWith('/checkout') ||
     location.pathname.startsWith('/login') ||
@@ -177,226 +173,44 @@ export default function SliderPopup() {
     location.pathname.startsWith('/order-success') ||
     location.pathname.startsWith('/admin');
 
-  // Detect if current page is product details
   const isOnProductPage = location.pathname.includes('/product/');
 
-  // Countdown timer: persistent 6-hour synchronized deal countdown
-  useEffect(() => {
-    const getTargetTime = () => {
-      const stored = localStorage.getItem('dharani_deal_deadline');
-      const now = Date.now();
-      if (stored && Number(stored) > now) {
-        return Number(stored);
-      }
-      const newDeadline = now + 6 * 60 * 60 * 1000 + 35 * 60 * 1000;
-      localStorage.setItem('dharani_deal_deadline', String(newDeadline));
-      return newDeadline;
-    };
-
-    const targetTime = getTargetTime();
-
-    const updateTimer = () => {
-      const now = Date.now();
-      let diff = targetTime - now;
-      if (diff <= 0) {
-        const newDeadline = now + 6 * 60 * 60 * 1000;
-        localStorage.setItem('dharani_deal_deadline', String(newDeadline));
-        diff = 6 * 60 * 60 * 1000;
-      }
-
-      const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
-      const m = Math.floor((diff / 1000 / 60) % 60);
-      const s = Math.floor((diff / 1000) % 60);
-
-      setTimeLeft({
-        hours: String(h).padStart(2, '0'),
-        minutes: String(m).padStart(2, '0'),
-        seconds: String(s).padStart(2, '0')
-      });
-    };
-
-    updateTimer();
-    const timerInterval = setInterval(updateTimer, 1000);
-    return () => clearInterval(timerInterval);
-  }, []);
-
-  // Helper to format currency values safely
-  const formatPriceValue = (val) => {
-    if (val === null || val === undefined || val === '') return '';
-    return `₹${val}`;
-  };
-
-  // Fetch real offers from CRM API; use contextProducts already loaded by ProductsContext
+  // Fetch sliders from CRM and merge with product data
   useEffect(() => {
     let isMounted = true;
-    const fetchOffersAndProducts = async () => {
+
+    const loadOffers = async () => {
+      let sliderList = [];
       try {
-        // Only fetch sliders — products are already available from ProductsContext (no duplicate request)
-        const slidersRes = await fetch(SLIDERS_API_URL, { headers: { 'ngrok-skip-browser-warning': 'true' } }).catch(() => null);
-
-        let sliderList = [];
-        if (slidersRes && slidersRes.ok) {
-          const sData = await slidersRes.json();
-          sliderList = Array.isArray(sData) ? sData : sData?.value || sData?.results || sData?.data || [];
-        }
-
-        // Use contextProducts directly — already fetched, cached, and transformed by ProductsContext
-        let productsList = contextProducts && contextProducts.length > 0 ? [...contextProducts] : [];
-
-        const findMatchedProduct = (titleText, imgUrl) => {
-          if (!productsList || productsList.length === 0) return null;
-
-          if (imgUrl && imgUrl.match(/\.(jpeg|jpg|png|webp|gif|svg)(\?.*)?$/i)) {
-            try {
-              const cleanImgFilename = decodeURIComponent(imgUrl.split('/').pop().split('?')[0]).trim().toLowerCase();
-              const matchedByImage = productsList.find((p) => {
-                if (!p.image) return false;
-                const pImgFilename = decodeURIComponent(p.image.split('/').pop().split('?')[0]).trim().toLowerCase();
-                return pImgFilename === cleanImgFilename;
-              });
-              if (matchedByImage) return matchedByImage;
-            } catch (e) {
-              // ignore
-            }
-          }
-
-          if (titleText) {
-            const clean = titleText.trim().toLowerCase();
-            const searchWords = clean
-              .replace(/\b(mega offer|offer|deal|special|pack|combo|limited|buy|get)\b/gi, '')
-              .trim()
-              .split(/\s+/)
-              .filter((w) => w.length >= 3);
-
-            let bestMatch = null;
-            let highestScore = 0;
-
-            for (const p of productsList) {
-              const pName = (p.name || '').toLowerCase();
-              let score = 0;
-              if (pName === clean) score += 100;
-              else if (pName.includes(clean) || clean.includes(pName)) score += 50;
-
-              for (const w of searchWords) {
-                if (pName.includes(w)) score += 10;
-              }
-
-              if (score > highestScore && score >= 10) {
-                highestScore = score;
-                bestMatch = p;
-              }
-            }
-            return bestMatch;
-          }
-
-          return null;
-        };
-
-        const activeOffers = [];
-
-        // 1. Process CRM Sliders FIRST (High Priority)
-        if (sliderList.length > 0) {
-          sliderList
-            .filter((item) => item.is_active !== false)
-            .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0))
-            .forEach((item, index) => {
-              let rawUrl = item.image || item.image_url || item.url || (item.subtitle && item.subtitle.startsWith('http') ? item.subtitle : null);
-              let title = item.title || item.offer || item.text_overlay || '';
-              let subtitle = item.subtitle && !item.subtitle.startsWith('http') ? item.subtitle : '';
-              let targetLink = item.link || (item.product_id ? `/product/${item.product_id}` : '');
-
-              let matchedProd = null;
-              if (item.product_id) {
-                const pId = Number(item.product_id);
-                matchedProd = productsList.find((p) => Number(p.id) === pId);
-              }
-              if (!matchedProd && targetLink) {
-                const prodIdMatch = targetLink.match(/\/product\/(\d+)/);
-                if (prodIdMatch) {
-                  const pId = Number(prodIdMatch[1]);
-                  matchedProd = productsList.find((p) => Number(p.id) === pId);
-                }
-              }
-              if (!matchedProd) {
-                matchedProd = findMatchedProduct(title, rawUrl);
-              }
-
-              let img = getProductStudioImage(item, matchedProd);
-
-              if (matchedProd && !targetLink) {
-                targetLink = `/product/${matchedProd.id}`;
-              }
-
-              let finalPrice = null;
-              let originalPrice = null;
-              let discountPct = null;
-
-              if (matchedProd?.price) {
-                finalPrice = parseFloat(String(matchedProd.price).replace(/[^0-9.]/g, ''));
-              }
-              if (matchedProd?.mrp) {
-                originalPrice = parseFloat(String(matchedProd.mrp).replace(/[^0-9.]/g, ''));
-              }
-
-              if (item.discount_percentage || item.discount) {
-                discountPct = parseInt(item.discount_percentage || item.discount, 10);
-              } else if (originalPrice && finalPrice && originalPrice > finalPrice) {
-                discountPct = Math.round(((originalPrice - finalPrice) / originalPrice) * 100);
-              }
-
-              if (!discountPct && item.offer) {
-                const pctMatch = String(item.offer).match(/(\d+)%/);
-                if (pctMatch) discountPct = parseInt(pctMatch[1], 10);
-              }
-
-              if (!originalPrice && finalPrice && discountPct && discountPct > 0 && discountPct < 100) {
-                originalPrice = Math.round(finalPrice / (1 - discountPct / 100));
-              }
-
-              activeOffers.push({
-                id: item.id || `crm-${index}`,
-                productName: matchedProd?.name || title || (isTamil ? 'இயற்கை மூலிகை தயாரிப்பு' : 'Herbal Wellness Product'),
-                offerTitle: item.offer || title || (isTamil ? 'சிறப்பு ஆஃபர்' : 'Special Offer'),
-                subtitle: subtitle || matchedProd?.category_name || (isTamil ? 'பாரம்பரிய மூலிகை தயாரிப்பு' : 'Botanical Herbal Remedy'),
-                image: img,
-                link: targetLink || (matchedProd ? `/product/${matchedProd.id}` : '/shop'),
-                originalPrice: originalPrice || (finalPrice ? Math.round(finalPrice * 1.3) : null),
-                finalPrice: finalPrice || (originalPrice ? Math.round(originalPrice * 0.75) : null),
-                discountPercentage: discountPct || 25,
-                isCrmOffer: true
-              });
-            });
-        }
-
-        // Ensure all offers use crisp transparent studio cutouts and banners
-        const sanitizedOffers = activeOffers.map((offer) => {
-          const studioImg = getProductStudioImage(offer, null);
-          return {
-            ...offer,
-            image: studioImg || offer.image
-          };
+        const res = await fetch(CRM_SLIDERS_ENDPOINT, {
+          headers: { Accept: 'application/json', 'ngrok-skip-browser-warning': 'true' }
         });
-
-        if (isMounted && sanitizedOffers.length > 0) {
-          setOffers(sanitizedOffers);
+        if (res.ok) {
+          const data = await res.json();
+          sliderList = Array.isArray(data) ? data : data?.value || data?.results || data?.data || [];
         }
       } catch (err) {
-        console.warn('SliderPopup fetch error:', err);
+        console.warn('SliderPopup CRM fetch error:', err);
       }
+
+      const productsList = contextProducts || [];
+
+      const crmOffers = sliderList
+        .filter((item) => item.is_active !== false)
+        .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0))
+        .map((item, index) => buildOffer(item, index, productsList));
+
+      if (!isMounted) return;
+      setOffers(crmOffers.length > 0 ? crmOffers : DEFAULT_FEATURED_OFFERS);
+      setCurrentIndex(0);
     };
 
-    fetchOffersAndProducts();
+    loadOffers();
     return () => {
       isMounted = false;
     };
-  }, [isTamil, contextProducts]);
+  }, [contextProducts]);
 
-  // Preview card removed - widget starts strictly as minimized small girl icon
-  useEffect(() => {
-    // No automatic popup
-  }, [isExcludedRoute]);
-
-  // Confetti sparks when modal opens
   const triggerSparks = useCallback(() => {
     try {
       confetti({
@@ -416,17 +230,24 @@ export default function SliderPopup() {
     }
   }, []);
 
-  // Listen for open-dharani-offer-modal from ImageSlider or promo links
+  // Open modal from elsewhere in the app
   useEffect(() => {
     const handleOpenModal = () => {
       setIsModalOpen(true);
       triggerSparks();
     };
     window.addEventListener('open-dharani-offer-modal', handleOpenModal);
-    return () => {
-      window.removeEventListener('open-dharani-offer-modal', handleOpenModal);
-    };
+    return () => window.removeEventListener('open-dharani-offer-modal', handleOpenModal);
   }, [triggerSparks]);
+
+  // Auto-slide while modal is open and mouse is not over the card
+  useEffect(() => {
+    if (!isModalOpen || offers.length <= 1 || isHovered) return;
+    const timer = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % offers.length);
+    }, AUTO_SLIDE_MS);
+    return () => clearInterval(timer);
+  }, [isModalOpen, offers.length, isHovered]);
 
   const handleOpenOfferModal = (e) => {
     if (e) e.stopPropagation();
@@ -441,15 +262,11 @@ export default function SliderPopup() {
 
   const handleAction = () => {
     const current = offers[currentIndex];
-    handleCloseModal();
-    if (current?.link) {
-      if (current.link.startsWith('http')) {
-        window.open(current.link, '_blank');
-      } else {
-        navigate(current.link);
-      }
+    setIsModalOpen(false);
+    if (current?.link?.startsWith('http')) {
+      window.open(current.link, '_blank');
     } else {
-      navigate('/shop');
+      navigate(current?.link || '/shop');
     }
   };
 
@@ -480,12 +297,13 @@ export default function SliderPopup() {
   };
 
   const currentOffer = offers[currentIndex] || offers[0];
-
   if (isExcludedRoute || !currentOffer) return null;
+
+  const isHeroBanner = currentOffer.image === wildTurmericBannerImg;
 
   return (
     <>
-      {/* 🌿 SMALL GIRL ICON FLOATING TRIGGER (BOTTOM-LEFT CORNER) */}
+      {/* Floating trigger (bottom-left) */}
       <div
         className={`dharani-mascot-minimized-trigger ${isOnProductPage ? 'on-product-page' : ''}`}
         onClick={handleOpenOfferModal}
@@ -497,11 +315,11 @@ export default function SliderPopup() {
         <img src={dharaniAvatar} alt="Dharani Avatar" className="minimized-avatar-img" />
         <span className="minimized-offer-badge">
           <Sparkles size={10} />
-          <span>OFFER</span>
+          <span>{offers.length > 1 ? `${offers.length} OFFERS` : 'OFFER'}</span>
         </span>
       </div>
 
-      {/* 🌿 BOTANICAL OFFER POPUP MODAL (REVEALED ON CLICK) */}
+      {/* Offer modal */}
       {isModalOpen && (
         <div
           className="herbal-offer-modal-overlay"
@@ -519,13 +337,20 @@ export default function SliderPopup() {
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
           >
-            {/* Card Header with Category/Tag & Close Button */}
             <div className="herbal-offer-mascot-modal-header">
               <div className="herbal-offer-mascot-left">
                 <img src={dharaniAvatar} alt="Dharani" className="herbal-modal-avatar-thumb" />
                 <div>
-                  <h4 className="herbal-modal-avatar-title">{isTamil ? "வணக்கம்! நான் தரணி 🌿" : "Hi! I'm Dharani 🌿"}</h4>
-                  <p className="herbal-modal-avatar-sub">{isTamil ? "வாடிக்கையாளர்கள் அதிகம் விரும்பும் தயாரிப்புகள்!" : "Customer's Most Loved Products!"}</p>
+                  <h4 className="herbal-modal-avatar-title">
+                    {isTamil ? 'வணக்கம்! நான் தரணி 🌿' : "Hi! I'm Dharani 🌿"}
+                  </h4>
+                  <p className="herbal-modal-avatar-sub">
+                    {offers.length > 1
+                      ? `${currentIndex + 1} / ${offers.length} • ${isTamil ? 'சிறப்பு சலுகைகள்' : 'Special Offers'}`
+                      : isTamil
+                      ? 'வாடிக்கையாளர்கள் அதிகம் விரும்பும் தயாரிப்புகள்!'
+                      : "Customer's Most Loved Products!"}
+                  </p>
                 </div>
               </div>
               <button
@@ -539,68 +364,55 @@ export default function SliderPopup() {
               </button>
             </div>
 
-            {/* Product Image Frame */}
-            {(() => {
-              const isHeroBanner =
-                currentOffer.image === wildTurmericBannerImg ||
-                (currentOffer.productName && currentOffer.productName.toLowerCase().includes('turmeric') && !currentOffer.image?.includes('wp-content'));
-              return (
-                <div
-                  className={`herbal-offer-image-frame ${isHeroBanner ? 'has-hero-banner' : 'has-product-stage'}`}
-                  onClick={handleAction}
-                  title={isTamil ? 'தயாரிப்பை காண்க' : 'View product details'}
-                >
-                  <img
-                    key={currentOffer.id + (currentOffer.image || '')}
-                    src={currentOffer.image || sathuMaavuImg}
-                    alt={currentOffer.productName || currentOffer.offerTitle}
-                    className={`herbal-offer-img ${isHeroBanner ? 'is-hero-banner' : 'is-product-thumb'}`}
-                    loading="eager"
-                    onError={(e) => {
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.src = sathuMaavuImg;
+            <div
+              className={`herbal-offer-image-frame ${isHeroBanner ? 'has-hero-banner' : 'has-product-stage'}`}
+              onClick={handleAction}
+              title={isTamil ? 'தயாரிப்பை காண்க' : 'View product details'}
+            >
+              <img
+                key={`${currentOffer.id}-${currentIndex}`}
+                src={currentOffer.image}
+                alt={currentOffer.productName}
+                className={`herbal-offer-img ${isHeroBanner ? 'is-hero-banner' : 'is-product-thumb'}`}
+                loading="eager"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = currentOffer.fallbackImage || sathuMaavuImg;
+                }}
+              />
+
+              <div className="herbal-offer-badge herbal-offer-badge--loved">
+                <span>{isTamil ? '⭐ அதிகம் விரும்பப்படும் தயாரிப்பு' : '⭐ Most Loved'}</span>
+              </div>
+
+              {offers.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    className="herbal-offer-nav-btn left"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      prevSlide();
                     }}
-                  />
+                    aria-label="Previous Offer"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <button
+                    type="button"
+                    className="herbal-offer-nav-btn right"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      nextSlide();
+                    }}
+                    aria-label="Next Offer"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </>
+              )}
+            </div>
 
-                  {/* Most Loved Badge Over Image */}
-                  <div className="herbal-offer-badge herbal-offer-badge--loved">
-                    <span>
-                      {isTamil ? '⭐ அதிகம் விரும்பப்படும் தயாரிப்பு' : '⭐ Most Loved'}
-                    </span>
-                  </div>
-
-                  {/* Slider Arrows if multiple offers */}
-                  {offers.length > 1 && (
-                    <>
-                      <button
-                        type="button"
-                        className="herbal-offer-nav-btn left"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          prevSlide();
-                        }}
-                        aria-label="Previous Offer"
-                      >
-                        <ChevronLeft size={18} />
-                      </button>
-                      <button
-                        type="button"
-                        className="herbal-offer-nav-btn right"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          nextSlide();
-                        }}
-                        aria-label="Next Offer"
-                      >
-                        <ChevronRight size={18} />
-                      </button>
-                    </>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Content Body: Category, Product Name, Single Price, Customer Love Box, Shop Now Button */}
             <div className="herbal-offer-modal-body">
               <span className="herbal-offer-badge-title">
                 {isTamil ? 'வாடிக்கையாளர் விருப்பம்' : 'CUSTOMER FAVORITE'}
@@ -616,49 +428,43 @@ export default function SliderPopup() {
                 <p className="herbal-offer-subtitle">{currentOffer.subtitle}</p>
               )}
 
-              {/* Real Original Product Price */}
-              {(() => {
-                const prodPrice = currentOffer.originalPrice || currentOffer.finalPrice;
-                if (!prodPrice) return null;
-                return (
-                  <div className="herbal-offer-pricing-row">
-                    <span className="herbal-offer-final-price">
-                      {formatPriceValue(prodPrice)}
-                    </span>
-                    <span className="herbal-loved-tag">
-                      {isTamil ? '❤️ அதிகம் விரும்பப்படும் தயாரிப்பு' : '❤️ Most Loved'}
-                    </span>
-                  </div>
-                );
-              })()}
+              {(currentOffer.originalPrice || currentOffer.finalPrice) && (
+                <div className="herbal-offer-pricing-row">
+                  <span className="herbal-offer-final-price">
+                    ₹{currentOffer.originalPrice || currentOffer.finalPrice}
+                  </span>
+                  <span className="herbal-loved-tag">
+                    {isTamil ? '❤️ அதிகம் விரும்பப்படும் தயாரிப்பு' : '❤️ Most Loved'}
+                  </span>
+                </div>
+              )}
 
-              {/* Customer Lovable Products Highlight Box */}
               <div className="herbal-customer-love-box">
                 <div className="herbal-customer-love-item">
                   <Sparkles size={15} className="herbal-love-sparkle" />
-                  <span>{isTamil ? '10,000+ வாடிக்கையாளர்களால் அதிகம் விரும்பப்பட்டது' : 'Loved by 10,000+ Happy Customers'}</span>
+                  <span>
+                    {isTamil
+                      ? '10,000+ வாடிக்கையாளர்களால் அதிகம் விரும்பப்பட்டது'
+                      : 'Loved by 10,000+ Happy Customers'}
+                  </span>
                 </div>
                 <p className="herbal-customer-love-sub">
-                  {isTamil ? '100% தூய இயற்கை மூலிகை தயாரிப்பு • பக்கவிளைவுகள் அற்றது' : '100% Pure Botanical Care • Time-Tested Siddha Wisdom'}
+                  {isTamil
+                    ? '100% தூய இயற்கை மூலிகை தயாரிப்பு • பக்கவிளைவுகள் அற்றது'
+                    : '100% Pure Botanical Care • Time-Tested Siddha Wisdom'}
                 </p>
               </div>
 
-              {/* Shop Now Action Button */}
-              <button
-                type="button"
-                className="herbal-offer-action-btn"
-                onClick={handleAction}
-              >
+              <button type="button" className="herbal-offer-action-btn" onClick={handleAction}>
                 <ShoppingBag size={17} />
                 <span>{isTamil ? 'இப்போதே வாங்க' : 'Shop Now'}</span>
               </button>
 
-              {/* Slide Dots if multiple */}
               {offers.length > 1 && (
                 <div className="herbal-offer-dots" role="tablist">
-                  {offers.map((_, idx) => (
+                  {offers.map((offer, idx) => (
                     <button
-                      key={idx}
+                      key={offer.id || idx}
                       type="button"
                       className={`herbal-offer-dot ${idx === currentIndex ? 'active' : ''}`}
                       onClick={() => setCurrentIndex(idx)}

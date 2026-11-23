@@ -392,6 +392,8 @@
 }
 
 /* Product Image Frame — Premium Natural Herbal Photoshoot Stage */
+/* Product Image Frame */
+/* Product Image Frame: full background image */
 .herbal-offer-image-frame {
   position: relative;
   width: 100%;
@@ -399,7 +401,7 @@
   background-color: #244426;
   background-image: url('../assets/herbal_nature_pedestal_stage.webp');
   background-size: cover;
-  background-position: center bottom;
+  background-position: center;
   background-repeat: no-repeat;
   display: flex;
   align-items: flex-end;
@@ -432,13 +434,16 @@
 }
 
 .herbal-offer-img.is-product-thumb {
-  max-width: 70%;
-  max-height: 155px;
-  object-fit: contain;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: cover;
   display: block;
   opacity: 1 !important;
-  filter: drop-shadow(0 12px 18px rgba(20, 15, 8, 0.45));
-  margin-bottom: 2px;
+  margin-bottom: 0;
 }
 
 .herbal-offer-image-frame:hover .herbal-offer-img {
