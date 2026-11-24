@@ -59,6 +59,8 @@ const FALLBACK_CATEGORIES = [...PREFERRED_ORDER, 'Sweet n Savories'].map((name, 
   name,
 }));
 
+const SKELETON_COUNT = 8;
+
 // Adds ?v=42 (cache-bust) safely, whether or not the URL already has a query string
 const withVersion = (url, v = '42') => {
   if (!url || url.startsWith('data:') || url.startsWith('blob:')) return url;
@@ -140,43 +142,34 @@ export default function CategoryStrip() {
   const activeCategory = searchParams.get('category');
   const { language, t } = useLanguage();
 
-  // Show the default list immediately (no waiting/blank state); the API list replaces it when it arrives
-  const [categories, setCategories] = useState(() => sortCategories(FALLBACK_CATEGORIES));
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const scrollRef = useRef(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const [progress, setProgress] = useState({ thumb: 100, offset: 0 });
-  const rafRef = useRef(0);
   const [isDragging, setIsDragging] = useState(false);
   const draggedRef = useRef(false);
 
-  // Throttled to one update per frame, and only re-renders when a value really changed
   const updateScrollState = useCallback(() => {
-    if (rafRef.current) return;
-    rafRef.current = requestAnimationFrame(() => {
-      rafRef.current = 0;
-      const el = scrollRef.current;
-      if (!el) return;
-      const { scrollLeft, scrollWidth, clientWidth } = el;
-      const maxScroll = Math.max(scrollWidth - clientWidth, 0);
-      setCanScrollLeft(scrollLeft > 8);
-      setCanScrollRight(scrollLeft < maxScroll - 8);
+    const el = scrollRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    const maxScroll = Math.max(scrollWidth - clientWidth, 0);
+    setCanScrollLeft(scrollLeft > 8);
+    setCanScrollRight(scrollLeft < maxScroll - 8);
 
-      const thumb = scrollWidth > 0 ? Math.min((clientWidth / scrollWidth) * 100, 100) : 100;
-      const offset = maxScroll > 0 ? (scrollLeft / maxScroll) * (100 - thumb) : 0;
-      const next = { thumb: Math.round(thumb * 10) / 10, offset: Math.round(offset * 10) / 10 };
-      setProgress((prev) =>
-        prev.thumb === next.thumb && prev.offset === next.offset ? prev : next
-      );
-    });
+    const thumb = scrollWidth > 0 ? Math.min((clientWidth / scrollWidth) * 100, 100) : 100;
+    const offset = maxScroll > 0 ? (scrollLeft / maxScroll) * (100 - thumb) : 0;
+    setProgress({ thumb, offset });
   }, []);
 
   // Fetch categories (API is the source of truth for ALL categories)
   useEffect(() => {
     const controller = new AbortController();
     let unmounted = false;
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     fetch(`${API_BASE_URL}/categories/`, {
       signal: controller.signal,
@@ -189,11 +182,14 @@ export default function CategoryStrip() {
       .then((data) => {
         if (unmounted) return;
         const list = extractList(data);
-        if (list.length) setCategories(sortCategories(list));
+        setCategories(sortCategories(list.length ? list : FALLBACK_CATEGORIES));
+        setLoading(false);
       })
       .catch((err) => {
         if (unmounted) return;
         console.error('Error fetching categories from API:', err);
+        setCategories(FALLBACK_CATEGORIES);
+        setLoading(false);
       })
       .finally(() => clearTimeout(timeoutId));
 
@@ -214,15 +210,13 @@ export default function CategoryStrip() {
     return () => {
       el.removeEventListener('scroll', updateScrollState);
       window.removeEventListener('resize', updateScrollState);
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = 0;
     };
-  }, [categories, updateScrollState]);
+  }, [categories, loading, updateScrollState]);
 
   // Mouse drag-to-scroll (desktop). Touch devices use native swipe.
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el) return undefined;
+    if (!el || loading) return undefined;
 
     let startX = 0;
     let startScroll = 0;
@@ -273,15 +267,15 @@ export default function CategoryStrip() {
       el.removeEventListener('click', onClickCapture, true);
       el.removeEventListener('dragstart', onDragStart);
     };
-  }, []);
+  }, [loading]);
 
   // Keep the selected category visible
   useEffect(() => {
-    if (!activeCategory || !scrollRef.current) return;
+    if (loading || !activeCategory || !scrollRef.current) return;
     scrollRef.current
       .querySelector('.cs-card.is-active')
       ?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
-  }, [categories, activeCategory]);
+  }, [loading, activeCategory]);
 
   const scrollByPage = (direction) => {
     const el = scrollRef.current;
@@ -321,7 +315,17 @@ export default function CategoryStrip() {
             className={`cs-track ${isDragging ? 'is-dragging' : ''}`}
             ref={scrollRef}
             role="list"
+            aria-busy={loading}
           >
+            {loading ? (
+              Array.from({ length: SKELETON_COUNT }).map((_, i) => (
+                <div className="cs-skeleton" key={i} aria-hidden="true">
+                  <span className="cs-skeleton-media" />
+                  <span className="cs-skeleton-line" />
+                </div>
+              ))
+            ) : (
+              <>
                 {/* "All" card clears the category filter */}
                 <div role="listitem" className="cs-item" style={{ '--i': 0 }}>
                   <Link
@@ -349,7 +353,7 @@ export default function CategoryStrip() {
                   <div
                     role="listitem"
                     className="cs-item"
-                    key={category.name}
+                    key={category.id ?? category.name}
                     style={{ '--i': index + 1 }}
                   >
                     <CategoryCard
@@ -359,6 +363,8 @@ export default function CategoryStrip() {
                     />
                   </div>
                 ))}
+              </>
+            )}
           </div>
 
           <button
@@ -374,14 +380,11 @@ export default function CategoryStrip() {
         </div>
 
         {/* Scroll progress (only when the row overflows) */}
-        {isScrollable && (
+        {isScrollable && !loading && (
           <div className="cs-progress" aria-hidden="true">
             <span
               className="cs-progress-thumb"
-              style={{
-                width: `${progress.thumb}%`,
-                transform: `translateX(${progress.thumb ? (progress.offset / progress.thumb) * 100 : 0}%)`,
-              }}
+              style={{ width: `${progress.thumb}%`, marginLeft: `${progress.offset}%` }}
             />
           </div>
         )}

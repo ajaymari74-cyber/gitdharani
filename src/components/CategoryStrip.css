@@ -163,20 +163,19 @@
 /* ---------- Card ---------- */
 
 .cs-card {
-  --tint: #e8efe3;
-
   position: relative;
   display: flex;
   flex-direction: column;
   width: 164px;
   border-radius: 24px;
-  background: var(--tint);
+  background: #ffffff;
+  border: 1px solid #e3ebe0;
   color: var(--cs-ink);
   text-decoration: none;
   overflow: hidden;
   -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 2px 6px rgba(30, 55, 38, 0.06);
-  transition: transform 0.4s var(--cs-ease), box-shadow 0.4s var(--cs-ease), background-color 0.3s ease;
+  box-shadow: 0 4px 12px rgba(30, 55, 38, 0.05);
+  transition: transform 0.4s var(--cs-ease), box-shadow 0.4s var(--cs-ease), background-color 0.3s ease, border-color 0.3s ease;
 }
 
 /* Product stage */
@@ -188,6 +187,7 @@
   width: 100%;
   aspect-ratio: 1 / 1;
   padding: 16px 16px 6px;
+  background: #ffffff;
 }
 
 .cs-img {
@@ -213,7 +213,7 @@
   width: 52%;
   height: 10px;
   border-radius: 50%;
-  background: radial-gradient(ellipse at center, rgba(25, 45, 30, 0.22) 0%, rgba(25, 45, 30, 0) 70%);
+  background: radial-gradient(ellipse at center, rgba(25, 45, 30, 0.16) 0%, rgba(25, 45, 30, 0) 70%);
   transform: translateX(-50%);
   transition: transform 0.45s var(--cs-ease), opacity 0.45s ease;
 }
@@ -226,7 +226,7 @@
   height: 64px;
   border-radius: 50%;
   color: #7f917c;
-  background: rgba(255, 255, 255, 0.65);
+  background: #f2f6ef;
 }
 
 /* Footer: name + go button */
@@ -239,7 +239,7 @@
   margin: 0 8px 8px;
   padding: 8px 8px 8px 14px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.82);
+  background: #f4f7f1;
   transition: background-color 0.3s ease;
 }
 
@@ -266,13 +266,13 @@
   height: 32px;
   border-radius: 50%;
   color: var(--cs-green);
-  background: #e5eee1;
+  background: #e3ede0;
   transition: background-color 0.3s ease, color 0.3s ease, transform 0.4s var(--cs-ease);
 }
 
 /* "All" card */
 .cs-card-all {
-  --tint: #dfeadb;
+  background: #ffffff;
 }
 
 .cs-all-icon {
@@ -284,15 +284,15 @@
   height: 84px;
   border-radius: 50%;
   color: var(--cs-green);
-  background: #ffffff;
-  box-shadow: 0 8px 18px rgba(30, 60, 40, 0.12);
+  background: #f2f7ef;
+  box-shadow: 0 6px 16px rgba(30, 60, 40, 0.08);
 }
 
 .cs-all-icon::before {
   content: '';
   position: absolute;
   inset: -9px;
-  border: 1.5px dashed rgba(31, 81, 57, 0.4);
+  border: 1.5px dashed rgba(31, 81, 57, 0.35);
   border-radius: 50%;
 }
 
@@ -300,19 +300,26 @@
 
 .cs-card.is-active {
   background: var(--cs-green);
+  border-color: var(--cs-green);
   box-shadow: 0 14px 28px rgba(31, 81, 57, 0.28);
 }
 
-.cs-card.is-active .cs-ground {
-  background: rgba(0, 0, 0, 0.28);
+/* Keep the product stage white so white-background API images stay seamless even when active */
+.cs-card.is-active .cs-stage {
+  background: #ffffff;
+  border-radius: 23px 23px 18px 18px;
+}
+
+.cs-card.is-active .cs-all-icon {
+  background: #f2f7ef;
 }
 
 .cs-card.is-active .cs-placeholder {
-  background: rgba(255, 255, 255, 0.85);
+  background: #f2f6ef;
 }
 
 .cs-card.is-active .cs-foot {
-  background: rgba(255, 255, 255, 0.12);
+  background: transparent;
 }
 
 .cs-card.is-active .cs-name {
@@ -329,7 +336,8 @@
 @media (hover: hover) and (pointer: fine) {
   .cs-card:hover {
     transform: translateY(-8px);
-    box-shadow: 0 18px 32px rgba(30, 60, 40, 0.16);
+    border-color: #c9d9c3;
+    box-shadow: 0 18px 32px rgba(30, 60, 40, 0.14);
   }
 
   .cs-card:hover .cs-img {
@@ -342,7 +350,7 @@
   }
 
   .cs-card:hover .cs-foot {
-    background: #ffffff;
+    background: #eaf1e6;
   }
 
   .cs-card:hover .cs-go {
@@ -351,8 +359,12 @@
     transform: translate(2px, -2px);
   }
 
+  .cs-card.is-active:hover {
+    border-color: var(--cs-green);
+  }
+
   .cs-card.is-active:hover .cs-foot {
-    background: rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.08);
   }
 
   .cs-card.is-active:hover .cs-go {
@@ -474,6 +486,10 @@
   .cs-card {
     width: 128px;
     border-radius: 20px;
+  }
+
+  .cs-card.is-active .cs-stage {
+    border-radius: 19px 19px 15px 15px;
   }
 
   .cs-stage {
