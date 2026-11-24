@@ -90,31 +90,82 @@ export function CartProvider({ children }) {
     }
   });
 
-  useEffect(() => {
+    useEffect(() => {
     let isMounted = true;
-    fetch(`${API_BASE_URL}/shipping-charge/`, {
-      headers: { 'ngrok-skip-browser-warning': 'true' }
-    })
-      .then(res => {
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        return res.json();
-      })
-      .then(data => {
+
+    const fetchShippingRates = async () => {
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/shipping-charge/`,
+          {
+            method: 'GET',
+            headers: {
+              'ngrok-skip-browser-warning': 'true'
+            },
+            cache: 'no-store'
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
         if (!isMounted) return;
-        const list = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+
+        const list = Array.isArray(data?.data)
+          ? data.data
+          : (Array.isArray(data) ? data : []);
+
         if (list.length > 0) {
           setStateShippingRates(list);
+
           try {
-            localStorage.setItem('dharani_state_shipping_rates', JSON.stringify(list));
+            localStorage.setItem(
+              'dharani_state_shipping_rates',
+              JSON.stringify(list)
+            );
           } catch (e) {}
         }
-      })
-      .catch(err => {
-        if (err.name === 'AbortError') return;
-        console.warn("Unable to fetch state shipping rates, using defaults/cache:", err.message);
-      });
-    return () => { isMounted = false; };
+      } catch (err) {
+        console.warn(
+          'Unable to refresh shipping rates, using defaults/cache:',
+          err.message
+        );
+      }
+    };
+
+    // Initial fetch
+    fetchShippingRates();
+
+    // Refresh when the browser tab becomes active
+    const handleFocus = () => {
+      fetchShippingRates();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchShippingRates();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener(
+      'visibilitychange',
+      handleVisibilityChange
+    );
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener(
+        'visibilitychange',
+        handleVisibilityChange
+      );
+    };
   }, []);
+
 
   const [taxAmount, setTaxAmount] = useState(0);
   const [cgst, setCgst] = useState(0);
