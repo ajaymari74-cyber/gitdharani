@@ -201,7 +201,7 @@ const UI_TRANSLATIONS = {
   },
   ta: {
     home: "முகப்பு",
-    'Explore All': "கடை",
+    'Explore All': "அனைத்தையும் காண்க",
     aboutUs: "எங்களைப் பற்றி",
     contact: "தொடர்பு",
     searchPlaceholder: "தயாரிப்புகளைத் தேடுங்கள்...",

@@ -21,6 +21,27 @@ const INDIAN_STATES = [
   "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"
 ];
 
+// Helper to normalize items regardless of backend field naming
+const extractOrderItems = (orderObj) => {
+  if (!orderObj || typeof orderObj !== 'object') return [];
+  if (Array.isArray(orderObj.items) && orderObj.items.length > 0) return orderObj.items;
+  if (Array.isArray(orderObj.order_items) && orderObj.order_items.length > 0) return orderObj.order_items;
+  if (Array.isArray(orderObj.products) && orderObj.products.length > 0) return orderObj.products;
+  return Array.isArray(orderObj.items) ? orderObj.items : [];
+};
+
+// Helper to resolve relative or full image URLs safely
+const resolveMediaUrl = (imgPath) => {
+  if (!imgPath || typeof imgPath !== 'string') return null;
+  const trimmed = imgPath.trim();
+  if (!trimmed || trimmed.includes('default.jpg')) return null;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) {
+    return trimmed;
+  }
+  const base = (API_BASE_URL || '').replace(/\/api\/?$/, '').replace(/\/$/, '');
+  return `${base}${trimmed.startsWith('/') ? '' : '/'}${trimmed}`;
+};
+
 export default function Profile() {
   const [userData, setUserData] = useState(null);
   const [orders, setOrders] = useState([]);
@@ -50,9 +71,12 @@ export default function Profile() {
   const mobileResendRef = useRef(null);
   const [addressToDelete, setAddressToDelete] = useState(null);
   const [deletingAddressId, setDeletingAddressId] = useState(null);
+  const [orderToCancel, setOrderToCancel] = useState(null);
+  const [cancellingOrderId, setCancellingOrderId] = useState(null);
   const [isStateDropdownOpen, setIsStateDropdownOpen] = useState(false);
   const [addressFormData, setAddressFormData] = useState({
-    id: null, full_name: '', phone: '', address: '', city: '', state: '', pincode: '', latitude: '11.0168', longitude: '76.9558', is_default: false});
+    id: null, full_name: '', phone: '', address: '', city: '', state: '', pincode: '', latitude: '11.0168', longitude: '76.9558', is_default: false
+  });
   const [stateSearchText, setStateSearchText] = useState('');
   const { products, refreshProducts } = useProducts();
   const { addToCart, refreshCart, cartItems } = useCart();
@@ -195,12 +219,20 @@ export default function Profile() {
           const roleParam = isStaff ? 'staff' : 'customer';
 
           fetch(getMyOrdersUrl(actualUser.id), {
-            headers: { 'ngrok-skip-browser-warning': 'true' }
+            cache: 'no-store',
+            headers: {
+              'ngrok-skip-browser-warning': 'true',
+              'Cache-Control': 'no-cache'
+            }
           })
             .then(res => {
               if (!res.ok) {
                 return fetch(`${API_BASE_URL}/orders/?user_id=${actualUser.id}&role=${roleParam}`, {
-                  headers: { 'ngrok-skip-browser-warning': 'true' }
+                  cache: 'no-store',
+                  headers: {
+                    'ngrok-skip-browser-warning': 'true',
+                    'Cache-Control': 'no-cache'
+                  }
                 }).then(r => r.json());
               }
               return res.json();
@@ -217,35 +249,42 @@ export default function Profile() {
                 fetchedOrders = data.value;
               }
 
-              // Now fetch the details for each order to get the items
+              // Sort newest orders first
+              fetchedOrders.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
+              // Fetch item details for every order while preserving any items already returned
               try {
                 const ordersWithItems = await Promise.all(
                   fetchedOrders.map(async (order) => {
-                    try {
-                      // Skip fetching tracking for pending/failed orders to avoid backend 502 errors
-                      if (order.status && (order.status.toLowerCase() === 'pending' || order.status.toLowerCase() === 'failed')) {
-                        return order;
-                      }
+                    const existingItems = extractOrderItems(order);
+                    const trackingIdToUse = order.id || order.order_id;
 
-                      // Fetch the tracking info using the new ngrok track endpoint
-                      const trackingIdToUse = order.id || order.order_id;
+                    if (!trackingIdToUse) {
+                      return { ...order, items: existingItems };
+                    }
+
+                    try {
                       const trackRes = await fetch(`${API_BASE_URL}/tracking/${trackingIdToUse}/`, {
                         headers: { 'ngrok-skip-browser-warning': 'true' }
                       });
                       if (trackRes.ok) {
                         const trackData = await trackRes.json();
-                        return { ...order, items: trackData.items };
+                        const trackedItems = extractOrderItems(trackData);
+                        return {
+                          ...order,
+                          items: trackedItems.length > 0 ? trackedItems : existingItems
+                        };
                       }
-                    } catch (err) {
-                      // Silently ignore to prevent console spam
+                    } catch {
+                      // Fall back to items already present on the order object
                     }
-                    return order;
+                    return { ...order, items: existingItems };
                   })
                 );
                 setOrders(ordersWithItems);
               } catch (err) {
                 console.error("Failed to fetch order details in parallel", err);
-                setOrders(fetchedOrders);
+                setOrders(fetchedOrders.map(o => ({ ...o, items: extractOrderItems(o) })));
               }
 
               setLoadingOrders(false);
@@ -580,8 +619,11 @@ export default function Profile() {
     }
   };
 
-  const handleCancelOrder = async (orderId) => {
-    if (!window.confirm("Are you sure you want to cancel this order? If you have paid, a refund will be initiated.")) return;
+  const confirmCancelOrder = async () => {
+    if (!orderToCancel || cancellingOrderId) return;
+
+    const targetOrderId = orderToCancel;
+    setCancellingOrderId(targetOrderId);
 
     try {
       const res = await fetch(`${API_BASE_URL}/paytm/refund/`, {
@@ -590,20 +632,26 @@ export default function Profile() {
           'Content-Type': 'application/json',
           'ngrok-skip-browser-warning': 'true'
         },
-        body: JSON.stringify({ order_id: orderId })
+        body: JSON.stringify({ order_id: targetOrderId })
       });
       const data = await res.json();
 
       if (res.ok && data.success) {
-        alert("Order cancelled successfully. " + (data.message || ""));
-        // Update local order status to 'Cancelled'
-        setOrders(orders.map(o => o.order_id === orderId ? { ...o, status: 'Cancelled' } : o));
+        showAppToast('Order cancelled successfully. ' + (data.message || ''));
+        setOrders(orders.map(o =>
+          String(o.order_id || o.id) === String(targetOrderId)
+            ? { ...o, status: 'Cancelled' }
+            : o
+        ));
       } else {
-        alert("Failed to cancel order: " + (data.message || data.error || "Please try again."));
+        alert('Failed to cancel order: ' + (data.message || data.error || 'Please try again.'));
       }
     } catch (err) {
       console.error(err);
-      alert("Network error while trying to cancel order.");
+      alert('Network error while trying to cancel order.');
+    } finally {
+      setCancellingOrderId(null);
+      setOrderToCancel(null);
     }
   };
 
@@ -886,11 +934,11 @@ export default function Profile() {
                       <div className="info-details" style={{ flex: 1 }}>
                         <label>Mobile Number</label>
 
-                       {mobileChangeMode === 'idle' && (
+                        {mobileChangeMode === 'idle' && (
                           <div className="profile-mobile-view" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <p>{mobile}</p>
-                            <button 
-                              type="button" 
+                            <button
+                              type="button"
                               className="btn-change-mobile"
                               style={{ background: 'transparent', border: 'none', color: '#16a34a', fontWeight: '600', cursor: 'pointer' }}
                               onClick={() => { setMobileChangeMode('input'); setNewMobile(''); }}
@@ -1005,7 +1053,7 @@ export default function Profile() {
                       </div>
                       <div className="form-group relative">
                         <label>State</label>
-                                                <div
+                        <div
                           className="custom-select-trigger"
                           onClick={() => {
                             setIsStateDropdownOpen(!isStateDropdownOpen);
@@ -1161,7 +1209,7 @@ export default function Profile() {
             <div className="profile-recent-orders" style={{ marginTop: 0 }}>
               <div className="profile-content-header">
                 <h1>My Orders</h1>
-                <p>View and track your recent orders.</p>
+                <p>View and track your recent orders ({orders.length}).</p>
               </div>
 
               {loadingOrders ? (
@@ -1171,28 +1219,48 @@ export default function Profile() {
               ) : orders.length > 0 ? (
                 <div className="orders-list">
                   {orders.map((order, idx) => {
+                    const orderItems = extractOrderItems(order);
+                    const orderStatus = order.status || 'Processing';
+                    const statusClass = orderStatus.toLowerCase().replace(/\s+/g, '-');
+                    const displayOrderId = order.order_id || order.id || idx + 1;
+
                     let firstImageUrl = null;
-                    let itemName = "Multiple items";
+                    let itemName = order.product_name || "Order Items";
                     let itemSummary = "";
 
-                    if (order.items && order.items.length > 0) {
-                      const firstItem = order.items[0];
-                      const baseName = firstItem.product_name || firstItem.product || "Unknown Item";
-                      const matchedProduct = products.find(p => p.name === baseName);
+                    if (orderItems.length > 0) {
+                      const firstItem = orderItems[0];
+                      const firstProdId = firstItem.product_id || firstItem.product || firstItem.id;
+                      const baseName = firstItem.product_name || firstItem.name || firstItem.title || "Product";
 
-                      itemName = formatProductDisplayName(language === 'ta' && matchedProduct && matchedProduct.tamil_name ? matchedProduct.tamil_name : baseName);
+                      // Match by ID first, then case-insensitive name
+                      const matchedProduct = products.find(p =>
+                        (firstProdId && String(p.id) === String(firstProdId)) ||
+                        (p.name && baseName && p.name.trim().toLowerCase() === String(baseName).trim().toLowerCase())
+                      );
 
-                      firstImageUrl = (firstItem.image && !firstItem.image.includes('default.jpg') && firstItem.image !== '')
-                        ? firstItem.image
-                        : matchedProduct?.image || firstItem.image;
+                      const localizedName = formatProductDisplayName(
+                        language === 'ta' && matchedProduct && matchedProduct.tamil_name
+                          ? matchedProduct.tamil_name
+                          : (matchedProduct?.name || baseName)
+                      );
+                      const qty = Number(firstItem.quantity || firstItem.qty || 1);
+                      itemName = qty > 1 ? `${localizedName} × ${qty}` : localizedName;
 
-                      if (order.items.length > 1) {
-                        itemSummary = `+${order.items.length - 1} more items`;
+                      firstImageUrl =
+                        resolveMediaUrl(firstItem.image) ||
+                        resolveMediaUrl(firstItem.product_image) ||
+                        resolveMediaUrl(matchedProduct?.image);
+
+                      if (orderItems.length > 1) {
+                        itemSummary = `+${orderItems.length - 1} more item${orderItems.length - 1 > 1 ? 's' : ''}`;
                       }
+                    } else if (order.image || order.product_image) {
+                      firstImageUrl = resolveMediaUrl(order.image || order.product_image);
                     }
 
                     return (
-                      <div key={idx} className="order-card">
+                      <div key={order.id || order.order_id || idx} className="order-card">
                         <div className="order-card-header">
                           <div className="order-card-title-group">
                             <div className="order-card-image">
@@ -1203,42 +1271,40 @@ export default function Profile() {
                               )}
                             </div>
                             <div>
-                              <h3>Order</h3>
+                              <h3>Order #{displayOrderId}</h3>
                               <p className="order-date">
-                                {new Date(order.created_at).toLocaleDateString()}
+                                {order.created_at ? new Date(order.created_at).toLocaleDateString() : ''}
                               </p>
                             </div>
                           </div>
-                          <span className={`order-status ${order.status.toLowerCase()}`}>
-                            {order.status}
+                          <span className={`order-status ${statusClass}`}>
+                            {orderStatus}
                           </span>
                         </div>
 
-                        {order.items && order.items.length > 0 && (
-                          <div className="order-items-summary">
-                            <span className="primary-item-name">{itemName}</span>
-                            {itemSummary && <span className="extra-items-count">{itemSummary}</span>}
-                          </div>
-                        )}
+                        <div className="order-items-summary">
+                          <span className="primary-item-name">{itemName}</span>
+                          {itemSummary && <span className="extra-items-count">{itemSummary}</span>}
+                        </div>
 
                         <div className="order-card-footer">
                           <div className="order-total">
-                            Total: <strong>{formatCurrency(order.total_amount, { showDecimals: true })}</strong>
+                            Total: <strong>{formatCurrency(order.total_amount || 0, { showDecimals: true })}</strong>
                           </div>
                           <div style={{ display: 'flex', gap: '10px' }}>
-                            {order.status && order.status.toLowerCase() !== 'cancelled' && order.status.toLowerCase() !== 'returned' && (
+                            {!['cancelled', 'returned', 'delivered', 'failed'].includes(statusClass) && (
                               <button
                                 className="btn-cancel-order"
-                                onClick={() => handleCancelOrder(order.order_id)}
+                                onClick={() => setOrderToCancel(order.order_id || order.id)}
                               >
                                 Cancel Order
                               </button>
                             )}
-                            {order.items && order.items.length > 0 && order.status && order.status.toLowerCase() === 'delivered' && (
+                            {orderItems.length > 0 && statusClass === 'delivered' && (
                               <button
                                 className="btn-review-order"
                                 onClick={() => {
-                                  const prodId = order.items[0]?.product_id || order.items[0]?.id;
+                                  const prodId = orderItems[0]?.product_id || orderItems[0]?.product || orderItems[0]?.id;
                                   if (prodId) {
                                     navigate(`/product/${prodId}?writeReview=true`);
                                   } else {
@@ -1266,6 +1332,36 @@ export default function Profile() {
                   <Package size={40} className="empty-icon" />
                   <p>You haven't placed any orders yet.</p>
                   <button className="btn-shop-now" onClick={() => navigate('/shop')}>Start Shopping</button>
+                </div>
+              )}
+
+              {/* Custom Cancel Order Confirmation Modal */}
+              {orderToCancel && (
+                <div className="delete-modal-overlay">
+                  <div className="delete-modal">
+                    <h3>Cancel Order #{orderToCancel}</h3>
+                    <p>
+                      Are you sure you want to cancel this order? If you have already paid, a refund will be initiated automatically.
+                    </p>
+                    <div className="delete-modal-actions">
+                      <button
+                        type="button"
+                        className="btn-cancel"
+                        onClick={() => setOrderToCancel(null)}
+                        disabled={cancellingOrderId !== null}
+                      >
+                        Keep Order
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-confirm-delete"
+                        onClick={confirmCancelOrder}
+                        disabled={cancellingOrderId !== null}
+                      >
+                        {cancellingOrderId !== null ? 'Cancelling...' : 'Yes, Cancel Order'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

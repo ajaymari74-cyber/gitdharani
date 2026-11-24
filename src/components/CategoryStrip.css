@@ -1,482 +1,539 @@
-/* ==========================================================================
-   DHARANI HERBALS LUXURY AYURVEDIC CATEGORY STRIP
-   Royal Arched Pod Cards, Living Botanical Float Wave & Ambient Aura
-   ========================================================================== */
+/* =========================================================
+   DHARANI HERBALS — Category section (animated edition)
+   Floating products, staggered reveal, drag-to-scroll
+   ========================================================= */
 
-.category-strip-container {
+.cs-section {
+  --cs-green: #1f5139;
+  --cs-green-dark: #143a28;
+  --cs-gold: #c9a24d;
+  --cs-ink: #1b251e;
+  --cs-line: #e1e8dc;
+  --cs-bg: #f7f9f4;
+  --cs-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
   width: 100%;
-  background-color: transparent;
-  padding: 24px 20px 24px 20px;
-  margin: 10px 0 20px 0;
-  position: relative;
+  margin: 0;
+  padding: 34px 24px 30px;
+  background: var(--cs-bg);
+  border-top: 1px solid var(--cs-line);
+  border-bottom: 1px solid var(--cs-line);
+  font-family: 'Outfit', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  box-sizing: border-box;
   overflow: hidden;
-  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+}
+
+.cs-section *,
+.cs-section *::before,
+.cs-section *::after {
   box-sizing: border-box;
 }
 
-/* Category Strip Heading Wrap */
-.cat-strip-header-wrap {
-  text-align: center;
-  margin-bottom: 22px;
-}
-
-.cat-strip-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(197, 161, 90, 0.12);
-  color: #8A6D2B;
-  border: 1px solid rgba(197, 161, 90, 0.32);
-  border-radius: 999px;
-  padding: 4px 14px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-}
-
-.cat-badge-leaf {
-  color: #16a34a;
-}
-
-.cat-strip-title {
-  font-family: 'Playfair Display', Georgia, serif;
-  font-size: 1.45rem;
-  font-weight: 700;
-  color: #173D2B;
-  margin: 8px 0 0 0;
-  letter-spacing: -0.2px;
-}
-
-/* Scroll Container Relative Shell */
-.category-strip-wrapper-rel {
-  position: relative;
+.cs-container {
+  width: 100%;
   max-width: 1400px;
   margin: 0 auto;
-  width: 100%;
-  display: flex;
-  align-items: center;
 }
 
-/* Glass Desktop Navigation Arrows */
-.cat-scroll-arrow {
+/* ---------- Heading ---------- */
+
+.cs-title {
+  margin: 0 0 26px;
+  text-align: center;
+  color: var(--cs-ink);
+  font-size: clamp(22px, 2.4vw, 31px);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+
+/* decorative underline that draws itself once */
+.cs-title::after {
+  content: '';
+  display: block;
+  width: 46px;
+  height: 3px;
+  margin: 12px auto 0;
+  border-radius: 3px;
+  background: var(--cs-gold);
+  transform-origin: center;
+  animation: cs-draw 0.8s var(--cs-ease) 0.15s both;
+}
+
+@keyframes cs-draw {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* ---------- Slider ---------- */
+
+.cs-slider {
+  position: relative;
+}
+
+/* edge fades hint at more content */
+.cs-slider::before,
+.cs-slider::after {
+  content: '';
   position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 10;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(8px);
-  border: 1.5px solid rgba(197, 161, 90, 0.35);
-  color: #173D2B;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 6px 18px rgba(23, 61, 43, 0.12);
-  cursor: pointer;
-  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
-  padding: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  width: 64px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
-.cat-scroll-arrow-left {
-  left: 4px;
+.cs-slider::before {
+  left: 0;
+  background: linear-gradient(to right, var(--cs-bg), rgba(247, 249, 244, 0));
 }
 
-.cat-scroll-arrow-right {
-  right: 4px;
+.cs-slider::after {
+  right: 0;
+  background: linear-gradient(to left, var(--cs-bg), rgba(247, 249, 244, 0));
 }
 
-.cat-scroll-arrow:hover {
-  background: #173D2B;
-  color: #ffffff;
-  border-color: #C5A15A;
-  transform: translateY(-50%) scale(1.12);
-  box-shadow: 0 10px 24px rgba(197, 161, 90, 0.35);
+.cs-slider.has-left::before,
+.cs-slider.has-right::after {
+  opacity: 1;
 }
 
-/* Horizontal Scroll Strip */
-.category-strip-scroll {
+.cs-track {
   display: flex;
   align-items: stretch;
   gap: 18px;
-  width: 100%;
+  padding: 16px 4px 28px;
   overflow-x: auto;
-  padding: 12px 16px 20px 16px;
-  scroll-behavior: smooth;
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE/Edge */
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+  overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
-.category-strip-scroll::-webkit-scrollbar {
-  display: none; /* Chrome, Safari */
+.cs-track::-webkit-scrollbar {
+  display: none;
 }
 
-/* Center fallback for larger screens */
+@media (hover: hover) and (pointer: fine) {
+  .cs-track {
+    cursor: grab;
+  }
+}
+
+.cs-track.is-dragging {
+  cursor: grabbing;
+  scroll-snap-type: none;
+  user-select: none;
+}
+
+.cs-track.is-dragging .cs-card {
+  pointer-events: none;
+}
+
 @media (min-width: 1280px) {
-  .category-strip-scroll {
-    justify-content: center;
+  .cs-track {
+    justify-content: safe center;
   }
 }
 
-/* Entrance Fade Up Animation */
-.cat-animate-up {
-  opacity: 0;
-  animation: catFadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+/* staggered reveal: one orchestrated entrance */
+.cs-item {
+  display: flex;
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  animation: cs-rise 0.7s var(--cs-ease) both;
+  animation-delay: calc(min(var(--i, 0), 8) * 60ms);
 }
 
-@keyframes catFadeUp {
-  0% {
+@keyframes cs-rise {
+  from {
     opacity: 0;
-    transform: translateY(22px) scale(0.94);
+    transform: translateY(18px);
   }
-  100% {
+  to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
-/* ==========================================================================
-   Royal Arched Pod Card (.category-arch-card)
-   ========================================================================== */
-.category-arch-card {
-  width: 142px;
-  min-width: 142px;
-  height: 204px;
-  border-radius: 48px 48px 22px 22px;
-  background: linear-gradient(180deg, #FFFFFF 0%, #FCFBF8 50%, #F5EFE6 100%);
-  border: 1.5px solid rgba(197, 161, 90, 0.32);
-  box-shadow: 0 8px 20px rgba(23, 61, 43, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+/* ---------- Card ---------- */
+
+.cs-card {
+  --tint: #e8efe3;
+
   position: relative;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
+  width: 164px;
+  border-radius: 24px;
+  background: var(--tint);
+  color: var(--cs-ink);
   text-decoration: none;
-  color: inherit;
-  transition: transform 0.34s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.34s ease, border-color 0.34s ease;
-  cursor: pointer;
-  flex-shrink: 0;
-  box-sizing: border-box;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 2px 6px rgba(30, 55, 38, 0.06);
+  transition: transform 0.4s var(--cs-ease), box-shadow 0.4s var(--cs-ease), background-color 0.3s ease;
 }
 
-.cat-card-inner {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
+/* Product stage */
+.cs-stage {
   position: relative;
-  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  padding: 16px 16px 6px;
 }
 
-/* Desktop Hover Lift & Golden Glow */
-@media (hover: hover) and (pointer: fine) {
-  .category-arch-card:hover {
-    transform: translateY(-8px) scale(1.02);
-    border-color: #C5A15A;
-    box-shadow: 0 16px 36px rgba(23, 61, 43, 0.12), 0 0 20px rgba(197, 161, 90, 0.28);
-  }
-
-  .category-arch-card:hover .cat-shimmer-sweep {
-    left: 200%;
-    transition: left 0.85s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .category-arch-card:hover .cat-aura-glow {
-    transform: translateX(-50%) scale(1.25);
-    opacity: 1;
-  }
-
-  .category-arch-card:hover .cat-product-img {
-    transform: scale(1.28);
-    filter: drop-shadow(0 12px 20px rgba(23, 61, 43, 0.24));
-  }
-
-  .category-arch-card:hover .cat-label-pill {
-    background: #173D2B;
-    color: #ffffff;
-    border-color: #173D2B;
-    box-shadow: 0 4px 12px rgba(23, 61, 43, 0.25);
-  }
-
-  .category-arch-card:hover .cat-label-arrow {
-    background: #C5A15A;
-    color: #173D2B;
-    transform: translateX(3px);
-  }
-}
-
-/* Active Selected Category State */
-.category-arch-card--active {
-  border-color: #C5A15A !important;
-  background: linear-gradient(180deg, #FFFFFF 0%, #F6F0E4 100%) !important;
-  box-shadow: 0 0 0 2.5px rgba(197, 161, 90, 0.5), 0 12px 28px rgba(23, 61, 43, 0.12) !important;
-}
-
-.category-arch-card--active .cat-label-pill {
-  background: #173D2B !important;
-  color: #ffffff !important;
-  border-color: #173D2B !important;
-}
-
-.category-arch-card--active .cat-label-arrow {
-  background: #C5A15A !important;
-  color: #173D2B !important;
-}
-
-/* Shimmer Light Streak on Hover */
-.cat-shimmer-sweep {
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 60%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.65) 50%, transparent 100%);
-  transform: skewX(-25deg);
-  pointer-events: none;
-  z-index: 4;
-}
-
-/* Glowing Botanical Halo */
-.cat-aura-glow {
-  position: absolute;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 105px;
-  height: 105px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(197, 161, 90, 0.25) 0%, rgba(22, 163, 74, 0.14) 55%, transparent 75%);
-  pointer-events: none;
-  transition: transform 0.4s ease, opacity 0.4s ease;
+.cs-img {
+  position: relative;
   z-index: 1;
-}
-
-.cat-aura-all {
-  background: radial-gradient(circle, rgba(197, 161, 90, 0.32) 0%, rgba(23, 61, 43, 0.18) 60%, transparent 75%);
-}
-
-/* Product Pedestal Pod (Steady & Perfectly Proportioned - No clipping) */
-.cat-img-pod {
-  width: 100%;
-  height: 128px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  z-index: 2;
-  padding: 0;
-  box-sizing: border-box;
-  overflow: hidden;
-}
-
-.cat-product-img {
+  display: block;
   width: 100%;
   height: 100%;
   max-width: 100%;
-  max-height: 128px;
+  max-height: 100%;
   object-fit: contain;
-  transform: scale(1.15) !important;
-  filter: drop-shadow(0 6px 14px rgba(23, 61, 43, 0.16));
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), filter 0.3s ease;
-  display: block;
+  object-position: center;
+  user-select: none;
+  -webkit-user-drag: none;
+  transition: transform 0.45s var(--cs-ease);
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .category-arch-card:hover .cat-product-img {
-    transform: scale(1.05) !important;
-    filter: drop-shadow(0 8px 16px rgba(23, 61, 43, 0.22));
-  }
-}
-
-/* "All" Hero Pod Circle Emblem */
-.cat-img-pod-all {
-  animation: none; /* Keep steady so sparkles pop */
-}
-
-.cat-all-hero-circle {
-  width: 78px;
-  height: 78px;
+/* soft ground shadow under the floating product */
+.cs-ground {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  width: 52%;
+  height: 10px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #173D2B 0%, #24583d 100%);
-  border: 2px solid #C5A15A;
+  background: radial-gradient(ellipse at center, rgba(25, 45, 30, 0.22) 0%, rgba(25, 45, 30, 0) 70%);
+  transform: translateX(-50%);
+  transition: transform 0.45s var(--cs-ease), opacity 0.45s ease;
+}
+
+.cs-placeholder {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  box-shadow: 0 8px 20px rgba(23, 61, 43, 0.22);
-  color: #F5EFE6;
-  transition: transform 0.3s ease;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  color: #7f917c;
+  background: rgba(255, 255, 255, 0.65);
 }
 
-.category-arch-card:hover .cat-all-hero-circle {
-  transform: scale(1.08) rotate(3deg);
-  border-color: #E5C378;
-}
-
-.cat-sparkle-anim {
-  color: #E5C378;
-  animation: sparklePulse 2.6s ease-in-out infinite;
-}
-
-@keyframes sparklePulse {
-  0%, 100% {
-    transform: scale(1) rotate(0deg);
-  }
-  50% {
-    transform: scale(1.2) rotate(16deg);
-  }
-}
-
-.cat-all-badge-text {
-  font-size: 0.76rem;
-  font-weight: 800;
-  letter-spacing: 0.8px;
-  color: #ffffff;
-  text-transform: uppercase;
-}
-
-/* Bottom Label Pill */
-.cat-label-pill {
-  margin: auto 8px 10px 8px;
-  width: calc(100% - 16px);
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: #ffffff;
-  border: 1px solid rgba(197, 161, 90, 0.35);
+/* Footer: name + go button */
+.cs-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 4px;
-  color: #173D2B;
-  font-size: 0.78rem;
-  font-weight: 700;
-  transition: all 0.28s ease;
-  position: relative;
-  z-index: 2;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
-  box-sizing: border-box;
+  gap: 8px;
+  min-height: 58px;
+  margin: 0 8px 8px;
+  padding: 8px 8px 8px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.82);
+  transition: background-color 0.3s ease;
 }
 
-.cat-label-name {
-  white-space: nowrap;
+.cs-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
-  text-align: left;
+  color: var(--cs-ink);
+  font-size: 14.5px;
+  font-weight: 650;
+  line-height: 1.25;
+  transition: color 0.3s ease;
 }
 
-.cat-label-arrow {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: rgba(197, 161, 90, 0.18);
-  color: #8A6D2B;
-  transition: all 0.25s ease;
-  flex-shrink: 0;
-}
-
-/* ==========================================================================
-   Mobile Responsiveness (<= 768px)
-   ========================================================================== */
-@media (max-width: 768px) {
-  .category-strip-container {
-    padding: 16px 10px 16px 10px;
-    margin: 4px 0 14px 0;
-  }
-
-  .cat-strip-header-wrap {
-    margin-bottom: 14px;
-  }
-
-  .cat-strip-title {
-    font-size: 1.15rem;
-    margin-top: 4px;
-  }
-
-  .cat-strip-badge {
-    padding: 3px 10px;
-    font-size: 0.65rem;
-  }
-
-  .cat-scroll-arrow {
-    display: none !important; /* Swipe navigation is native on mobile */
-  }
-
-  .category-strip-scroll {
-    gap: 12px;
-    padding: 6px 8px 14px 8px;
-    scroll-snap-type: x mandatory;
-  }
-
-  .category-arch-card {
-    width: 114px;
-    min-width: 114px;
-    height: 164px;
-    border-radius: 36px 36px 18px 18px;
-    scroll-snap-align: start;
-    box-shadow: 0 4px 14px rgba(23, 61, 43, 0.06);
-  }
-
-  .cat-img-pod {
-  height: 110px;
-  width: 100%;
-  padding: 0;
+.cs-go {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-sizing: border-box;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: var(--cs-green);
+  background: #e5eee1;
+  transition: background-color 0.3s ease, color 0.3s ease, transform 0.4s var(--cs-ease);
+}
+
+/* "All" card */
+.cs-card-all {
+  --tint: #dfeadb;
+}
+
+.cs-all-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  color: var(--cs-green);
+  background: #ffffff;
+  box-shadow: 0 8px 18px rgba(30, 60, 40, 0.12);
+}
+
+.cs-all-icon::before {
+  content: '';
+  position: absolute;
+  inset: -9px;
+  border: 1.5px dashed rgba(31, 81, 57, 0.4);
+  border-radius: 50%;
+}
+
+/* ---------- Active ---------- */
+
+.cs-card.is-active {
+  background: var(--cs-green);
+  box-shadow: 0 14px 28px rgba(31, 81, 57, 0.28);
+}
+
+.cs-card.is-active .cs-ground {
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.cs-card.is-active .cs-placeholder {
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.cs-card.is-active .cs-foot {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.cs-card.is-active .cs-name {
+  color: #ffffff;
+}
+
+.cs-card.is-active .cs-go {
+  color: var(--cs-green-dark);
+  background: var(--cs-gold);
+}
+
+/* ---------- Hover (mouse only) ---------- */
+
+@media (hover: hover) and (pointer: fine) {
+  .cs-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 18px 32px rgba(30, 60, 40, 0.16);
+  }
+
+  .cs-card:hover .cs-img {
+    transform: translateY(-8px) rotate(-4deg);
+  }
+
+  .cs-card:hover .cs-ground {
+    transform: translateX(-50%) scaleX(0.75);
+    opacity: 0.6;
+  }
+
+  .cs-card:hover .cs-foot {
+    background: #ffffff;
+  }
+
+  .cs-card:hover .cs-go {
+    color: #ffffff;
+    background: var(--cs-green);
+    transform: translate(2px, -2px);
+  }
+
+  .cs-card.is-active:hover .cs-foot {
+    background: rgba(255, 255, 255, 0.18);
+  }
+
+  .cs-card.is-active:hover .cs-go {
+    color: var(--cs-green-dark);
+    background: var(--cs-gold);
+  }
+}
+
+.cs-card:active {
+  transform: scale(0.98);
+}
+
+/* ---------- Arrows (desktop) ---------- */
+
+.cs-arrow {
+  position: absolute;
+  top: calc(50% - 8px);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: var(--cs-green);
+  background: #ffffff;
+  box-shadow: 0 6px 18px rgba(20, 45, 28, 0.18);
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition: opacity 0.25s ease, transform 0.3s var(--cs-ease), background-color 0.2s ease, color 0.2s ease;
+}
+
+.cs-arrow-left { left: -8px; }
+.cs-arrow-right { right: -8px; }
+
+.cs-arrow:hover:not(:disabled) {
+  color: #ffffff;
+  background: var(--cs-green);
+  transform: translateY(-50%) scale(1.08);
+}
+
+.cs-arrow:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ---------- Scroll progress ---------- */
+
+.cs-progress {
+  width: 120px;
+  height: 4px;
+  margin: 0 auto;
+  border-radius: 4px;
+  background: #dde5d8;
   overflow: hidden;
 }
 
-.cat-product-img {
-  width: 100%;
+.cs-progress-thumb {
+  display: block;
   height: 100%;
-  max-width: 100%;
-  max-height: 110px;
-  object-fit: contain;
-  transform: scale(1.12) !important;
-  filter: drop-shadow(0 4px 10px rgba(23, 61, 43, 0.14));
+  border-radius: 4px;
+  background: var(--cs-green);
+  will-change: transform;
 }
 
-  .cat-all-hero-circle {
-    width: 62px;
-    height: 62px;
+/* ---------- Focus ---------- */
+
+.cs-card:focus-visible,
+.cs-arrow:focus-visible {
+  outline: 3px solid rgba(201, 162, 77, 0.8);
+  outline-offset: 3px;
+}
+
+/* ---------- Tablet ---------- */
+
+@media (max-width: 1024px) {
+  .cs-section {
+    padding: 28px 20px 24px;
   }
 
-  .cat-all-badge-text {
-    font-size: 0.70rem;
+  .cs-card {
+    width: 150px;
   }
 
-  .cat-label-pill {
-    margin: auto 5px 8px 5px;
-    width: calc(100% - 10px);
-    padding: 5px 7px;
-    font-size: 0.72rem;
-    font-weight: 700;
-    gap: 3px;
-    justify-content: center;
+  .cs-track {
+    gap: 14px;
   }
 
-  .cat-label-name {
-    text-align: center;
+  .cs-arrow-left { left: -4px; }
+  .cs-arrow-right { right: -4px; }
+}
+
+/* ---------- Mobile (swipe) ---------- */
+
+@media (max-width: 768px) {
+  .cs-section {
+    padding: 22px 0 18px;
   }
 
-  .cat-label-arrow {
-    width: 15px;
-    height: 15px;
+  .cs-title {
+    margin-bottom: 14px;
+    padding: 0 16px;
   }
 
-  .cat-aura-glow {
-    width: 76px;
-    height: 76px;
-    top: 6px;
+  .cs-arrow,
+  .cs-slider::before,
+  .cs-slider::after {
+    display: none;
+  }
+
+  .cs-track {
+    gap: 12px;
+    padding: 10px 16px 20px;
+    scroll-padding-left: 16px;
+  }
+
+  .cs-card {
+    width: 128px;
+    border-radius: 20px;
+  }
+
+  .cs-stage {
+    padding: 12px 12px 4px;
+  }
+
+  .cs-ground {
+    bottom: 10px;
+  }
+
+  .cs-foot {
+    min-height: 50px;
+    margin: 0 6px 6px;
+    padding: 6px 6px 6px 10px;
+    border-radius: 14px;
+  }
+
+  .cs-name {
+    font-size: 12.5px;
+  }
+
+  .cs-go {
+    width: 26px;
+    height: 26px;
+  }
+
+  .cs-go svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  .cs-all-icon {
+    width: 64px;
+    height: 64px;
+  }
+
+  .cs-placeholder {
+    width: 52px;
+    height: 52px;
+  }
+}
+
+@media (max-width: 380px) {
+  .cs-card {
+    width: 118px;
+  }
+}
+
+/* ---------- Reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-title::after,
+  .cs-item {
+    animation: none !important;
+  }
+
+  .cs-card,
+  .cs-img,
+  .cs-go,
+  .cs-arrow {
+    transition: none !important;
   }
 }
